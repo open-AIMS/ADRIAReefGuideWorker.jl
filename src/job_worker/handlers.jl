@@ -11,8 +11,7 @@ handle jobs for this worker.
 Enum for job types matching the API definition
 """
 @enum JobType begin
-    # Here is where you would add job types you want to handle
-    TEST
+    ADRIA_MODEL_RUN
 end
 
 symbol_to_job_type = Dict(zip(Symbol.(instances(JobType)), instances(JobType)))
@@ -181,34 +180,34 @@ end
 
 #
 # ============================================
-# TEST - this is an example set of job methods
+# ADRIA_MODEL_RUN - this is an example set of job methods
 # ============================================
 #
 
 """
-Input payload for TEST job
+Input payload for ADRIA_MODEL_RUN job
 """
-struct TestInput <: AbstractJobInput
+struct AdriaModelRunInput <: AbstractJobInput
     id::Int64
 end
 
 """
-Output payload for TEST job
+Output payload for ADRIA_MODEL_RUN job
 """
-struct TestOutput <: AbstractJobOutput
+struct AdriaModelRunOutput <: AbstractJobOutput
 end
 
 """
-Handler for TEST jobs
+Handler for ADRIA_MODEL_RUN jobs
 """
-struct TestHandler <: AbstractJobHandler end
+struct AdriaModelRunHandler <: AbstractJobHandler end
 
 """
-Process a TEST job
+Process a ADRIA_MODEL_RUN job
 """
 function handle_job(
-    ::TestHandler, input::TestInput, context::HandlerContext
-)::TestOutput
+    ::AdriaModelRunHandler, input::AdriaModelRunInput, context::HandlerContext
+)::AdriaModelRunOutput
     @debug "Processing test job with id: $(input.id)"
 
     # Simulate processing time
@@ -217,9 +216,11 @@ function handle_job(
     @debug "Finished test job with id: $(input.id)"
     @debug "Could write something to $(context.storage_uri) if desired."
 
+    # Try loading the domain data package 
+
     # This is where the actual job processing would happen
     # For now, we just return a dummy output
-    return TestOutput()
+    return AdriaModelRunOutput()
 end
 
 #
@@ -232,15 +233,13 @@ end
 # Register the job types when the module loads
 #
 function __init__()
-    # Register the TEST job handler
+    # Register the ADRIA_MODEL_RUN job handler
     register_job_handler!(
-        TEST,
-        TestHandler(),
-        TestInput,
-        TestOutput
+        ADRIA_MODEL_RUN,
+        AdriaModelRunHandler(),
+        AdriaModelRunInput,
+        AdriaModelRunOutput
     )
-
-    # initialise more methods here as above
 
     @debug "Jobs module initialized with handlers"
 end

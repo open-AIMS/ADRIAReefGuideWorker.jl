@@ -1,4 +1,4 @@
-# ReefGuideWorkerTemplate.jl
+# ADRIAReefGuideWorker.jl
 
 A Julia-based worker template for the [open-AIMS/reefguide](https://github.com/open-AIMS/reefguide) distributed job processing system. This template provides a foundation for implementing custom job handlers that can process tasks from the ReefGuide job queue.
 

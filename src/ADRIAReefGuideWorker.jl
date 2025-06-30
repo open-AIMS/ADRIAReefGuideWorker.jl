@@ -1,4 +1,4 @@
-module ReefGuideWorkerTemplate
+module ADRIAReefGuideWorker
 
 # System imports 
 using Base.Threads
@@ -22,7 +22,7 @@ function start_worker()
     # might want to initialise data, caches or clients.
 
     # Worker launch
-    @info "Starting worker loop from ReefGuideWorkerTemplate.jl with $(Threads.nthreads()) threads."
+    @info "Starting worker loop from ADRIAReefGuideWorker.jl with $(Threads.nthreads()) threads."
     start(worker)
     @info "Worker closed itself..."
 end

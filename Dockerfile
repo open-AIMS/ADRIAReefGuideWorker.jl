@@ -66,20 +66,20 @@ ENV APP_ENV_DIR="${JULIA_DEPOT_PATH}/environments/app" \
 ENV JULIA_CPU_TARGET=x86_64;haswell;skylake;skylake-avx512;tigerlake
 
 # Install the versioned .toml file(s) into the shared app environment and use
-# those to set up the ReefGuideWorkerTemplate source code as a development package in the
+# those to set up the ADRIAReefGuideWorker source code as a development package in the
 # shared @app environment, pre-installing and precompiling dependencies.
 WORKDIR "${APP_SRC_DIR}"
 
 # Copy project and manifest - includes Manifest-v1.11 etc
 COPY Project.toml Manifest*.toml ./
 
-# Install the ReefGuideWorkerTemplate source code and configure it as a development
+# Install the ADRIAReefGuideWorker source code and configure it as a development
 # package in the @app shared environment.
 # Should be v speedy if the .toml file is unchanged, because all the
 # dependencies *should* already be installed.
 COPY ./src src
 RUN julia --project=@app \
-    -e  'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.precompile(); using ReefGuideWorkerTemplate;'
+    -e  'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.precompile(); using ADRIAReefGuideWorker;'
 
 # Expect to include the prepped data at /data/app and the config at
 # /data/.config.toml
@@ -87,8 +87,8 @@ VOLUME ["/data/app"]
 
 EXPOSE 8000
 
-# By default, drops the user into a  julia shell with ReefGuideWorkerTemplate activated
+# By default, drops the user into a  julia shell with ADRIAReefGuideWorker activated
 ENTRYPOINT ["julia", "--project=@app", "-t", "auto,1", "-e"]
 
 # Derived applications should override the command e.g. to start worker use
-CMD ["using ReefGuideWorkerTemplate; ReefGuideWorkerTemplate.start_worker()"]
+CMD ["using ADRIAReefGuideWorker; ADRIAReefGuideWorker.start_worker()"]
