@@ -27,9 +27,9 @@ end
 
 function update_domain_with_param!(; domain, param::ModelParam)
     # Set the distribution parametrisation defined by the user.
-    return ADRIA.set_factor_bounds(
-        Ref(domain),
-        param.param_name,
+    return ADRIA.set_factor_bounds!(
+        domain,
+        Symbol(param.param_name),
         model_param_to_tuple(param)
     )
 end
@@ -37,7 +37,7 @@ end
 function update_domain_with_params!(; domain, params::Vector{ModelParam})
     for param::ModelParam in params
         @debug "Setting parameter:" param.param_name param.lower param.upper
-        update_domain_with_param(;
+        update_domain_with_param!(;
             domain, param
         )
     end

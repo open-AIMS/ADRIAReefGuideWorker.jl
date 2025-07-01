@@ -217,7 +217,7 @@ Process an ADRIA_MODEL_RUN job
 function handle_job(
     ::AdriaModelRunHandler, input::AdriaModelRunInput, context::HandlerContext
 )::AdriaModelRunOutput
-    @info "Starting ADRIA model run: $(input.run_name)"
+    @info "Starting ADRIA model run"
     start_time = time()
 
     # Use provided RCP scenario or default to "45"
@@ -257,11 +257,13 @@ function handle_job(
         target_location=output_dir,
         folder_name=result_set_name
     )
+    
+    # generate output plot
+    relative_cover = ADRIA.metrics.scenario_relative_cover(result)
+    fig = ADRIA.viz.scenarios(result, relative_cover)
 
     # generate a figure from the result
     figure_output_name_relative = "figure.png"
-    relative_cover = ADRIA.metrics.scenario_relative_cover(result)
-    fig = ADRIA.viz.scenarios(result, relative_cover)
     save(joinpath(output_dir, figure_output_name_relative), fig)
 
     # Now upload this to s3 
