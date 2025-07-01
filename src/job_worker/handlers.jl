@@ -257,13 +257,21 @@ function handle_job(
         target_location=output_dir,
         folder_name=result_set_name
     )
-    
-    # generate output plot
+
+    # Reload the result set as it doesn't like the files moving!
+    @debug "Loading result set from new location"
+    result = ADRIA.load_results(joinpath(output_dir, result_set_name))
+
+    # generate the relative cover metric
+    @debug "Generating relative cover metric from result set"
     relative_cover = ADRIA.metrics.scenario_relative_cover(result)
+
+    # generate output plot
+    @debug "Building plot of relative coral cover"
     fig = ADRIA.viz.scenarios(result, relative_cover)
 
-    # generate a figure from the result
     figure_output_name_relative = "figure.png"
+    @debug "Saving plot to disk"
     save(joinpath(output_dir, figure_output_name_relative), fig)
 
     # Now upload this to s3 
@@ -280,7 +288,7 @@ function handle_job(
     full_s3_target = "$(context.storage_uri)/$(figure_output_name_relative)"
 
     @debug now() "Initiating file upload of figure"
-    upload_directory(
+    upload_file(
         client, joinpath(output_dir, figure_output_name_relative), full_s3_target
     )
     @debug now() "File upload completed"

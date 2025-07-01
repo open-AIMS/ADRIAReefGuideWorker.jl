@@ -31,7 +31,7 @@ S3 Storage Client implementation
 struct S3StorageClient <: StorageClient
     region::String
     s3_endpoint::OptionalValue{String}
-    
+
     # Constructor with defaults
     function S3StorageClient(;
         region::String,
@@ -47,7 +47,8 @@ Upload a file to the specified storage URI
 function upload_file(
     client::S3StorageClient,
     local_path::String,
-    storage_path::String
+    storage_path::String;
+    silent::Bool=false
 )::String
     try
         # Parse the storage URI - concat the target path + base path
@@ -55,9 +56,11 @@ function upload_file(
         if scheme != "s3"
             throw(ArgumentError("Expected S3 URI, got $scheme"))
         end
-        
-        @debug "Uploading file from $(local_path) to $(storage_path)"
-        
+
+        if !silent
+            @debug "Uploading file from $(local_path) to $(storage_path)"
+        end
+
         aws =
             !isnothing(client.s3_endpoint) ?
             # Use minio special config if we need to
@@ -69,15 +72,17 @@ function upload_file(
             ) :
             # Otherwise use typical AWS config
             AWS.AWSConfig(; region=client.region)
-            
+
         # Read the file content
         file_data = Base.read(local_path)
-        
+
         # Upload to S3
         AWSS3.s3_put(aws, bucket, key, file_data)
-        
+
         # For demonstration purposes only - simulate the upload
-        @debug "Uploaded file to $storage_path"
+        if !silent
+            @debug "Uploaded file to $storage_path"
+        end
         return storage_path
     catch e
         @error "Failed to upload file to S3: $e" exception = (e, catch_backtrace())
@@ -116,47 +121,47 @@ function upload_directory(
     storage_base_path::String
 )::Vector{String}
     @debug "Starting directory upload" local_directory storage_base_path
-    
+
     # Validate local directory exists
     if !isdir(local_directory)
         throw(ArgumentError("Local directory does not exist: $local_directory"))
     end
-    
+
     # Ensure storage base path ends with / for proper concatenation
-    storage_base = endswith(storage_base_path, "/") ? storage_base_path : storage_base_path * "/"
+    storage_base =
+        endswith(storage_base_path, "/") ? storage_base_path : storage_base_path * "/"
     @debug "Normalized storage base path" storage_base
-    
+
     uploaded_files = String[]
-    
+
     # Walk through all files in the directory recursively
     for (root, dirs, files) in walkdir(local_directory)
-        @debug "Processing directory" root files_count=length(files)
-        
         for file in files
             # Full local path to the file
             local_file_path = joinpath(root, file)
-            
+
             # Calculate relative path from the base directory
             relative_path = relpath(local_file_path, local_directory)
-            
+
             # Construct storage path (use forward slashes for S3 paths)
             storage_file_path = storage_base * replace(relative_path, "\\" => "/")
-            
-            @debug "Uploading file" local_path=local_file_path storage_path=storage_file_path relative_path
-            
+
             try
                 # Upload the individual file
-                uploaded_path = upload_file(client, local_file_path, storage_file_path)
+                uploaded_path = upload_file(
+                    client, local_file_path, storage_file_path; silent=true
+                )
                 push!(uploaded_files, uploaded_path)
-                @debug "Successfully uploaded file" uploaded_path
             catch e
-                @error "Failed to upload file" file=local_file_path exception=(e, catch_backtrace())
+                @error "Failed to upload file" file = local_file_path exception = (
+                    e, catch_backtrace()
+                )
                 rethrow(e)
             end
         end
     end
-    
-    @info "Directory upload completed" total_files=length(uploaded_files) local_directory storage_base
+
+    @info "Directory upload completed" total_files = length(uploaded_files) local_directory storage_base
     return uploaded_files
 end
 
