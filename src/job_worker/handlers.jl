@@ -182,22 +182,28 @@ function process_job(
 end
 
 #
-# ============================================
-# ADRIA_MODEL_RUN - this is an example set of job methods
-# ============================================
+# =====================================================
+# ADRIA_MODEL_RUN - Model parameter and job definitions
+# =====================================================
 #
 
 """
 Input payload for ADRIA_MODEL_RUN job
 """
 struct AdriaModelRunInput <: AbstractJobInput
-    id::Int64
+    num_scenarios::Int64
+    model_params::Vector{ModelParam}
+    rcp_scenario::OptionalValue{String}  # defaults to "45" if not provided
 end
 
 """
 Output payload for ADRIA_MODEL_RUN job
 """
 struct AdriaModelRunOutput <: AbstractJobOutput
+    # Relative S3 storage location of result set
+    output_result_set_path::String
+    # Relative S3 storage location of figure (png)
+    output_figure_path::String
 end
 
 """
@@ -206,32 +212,79 @@ Handler for ADRIA_MODEL_RUN jobs
 struct AdriaModelRunHandler <: AbstractJobHandler end
 
 """
-Process a ADRIA_MODEL_RUN job
+Process an ADRIA_MODEL_RUN job
 """
 function handle_job(
     ::AdriaModelRunHandler, input::AdriaModelRunInput, context::HandlerContext
 )::AdriaModelRunOutput
-    @debug "Processing test job with id: $(input.id)"
+    @info "Starting ADRIA model run: $(input.run_name)"
+    start_time = time()
+
+    # Use provided RCP scenario or default to "45"
+    rcp_scenario = something(input.rcp_scenario, "45")
+    @info "Using RCP scenario: $rcp_scenario"
 
     # Define the domain data path
+    # TODO (make configurable)
     data_pkg_path = "../data/Moore_2025-01-17_v070_rc1"
-    # load the domain (RCP 4.5)
-    domain = ADRIA.load_domain(data_pkg_path, "45")
-    # generate scenarios (must be power of 2)
-    scenarios = ADRIA.sample(domain, 128)
-    # run generated scenarios for RCP 4.5
-    result = ADRIA.run_scenarios(domain, scenarios, "45")
+
+    # Load the domain
+    @info "Loading domain data from: $data_pkg_path"
+    domain = ADRIA.load_domain(data_pkg_path, rcp_scenario)
+
+    # Apply custom parameters if provided
+    if !isempty(input.model_params)
+        @info "Applying $(length(input.model_params)) custom model parameters"
+        update_domain_with_params!(; domain, params=input.model_params)
+    end
+
+    # Generate scenarios with the specified number
+    @info "Generating $(input.num_scenarios) scenarios"
+    scenarios = ADRIA.sample(domain, input.num_scenarios)
+
+    # Run the scenarios
+    @info "Running scenarios for RCP $rcp_scenario"
+    result = ADRIA.run_scenarios(domain, scenarios, rcp_scenario)
+
+    execution_time = time() - start_time
+    @info "ADRIA model run completed in $(round(execution_time, digits=2)) seconds"
+
+    # Move and rename the output to specified location
+    # TODO this won't be necessary once we can 
+    result_set_name = "result_set"
+    output_dir = "../data/uploads"
+    move_result_set_to_determined_location(;
+        target_location=output_dir,
+        folder_name=result_set_name
+    )
+
     # generate a figure from the result
+    figure_output_name_relative = "figure.png"
     relative_cover = ADRIA.metrics.scenario_relative_cover(result)
     fig = ADRIA.viz.scenarios(result, relative_cover)
-    save("../data/output.png", fig)
+    save(joinpath(output_dir, figure_output_name_relative), fig)
 
-    @debug "Finished test job with id: $(input.id)"
-    @debug "Could write something to $(context.storage_uri) if desired."
+    # Now upload this to s3 
+    client = S3StorageClient(; region=context.aws_region, s3_endpoint=context.s3_endpoint)
 
-    # This is where the actual job processing would happen
-    # For now, we just return a dummy output
-    return AdriaModelRunOutput()
+    # Output file names
+    full_s3_target = "$(context.storage_uri)/$(result_set_name)"
+
+    @debug now() "Initiating file upload of result set"
+    upload_directory(client, joinpath(output_dir, result_set_name), full_s3_target)
+    @debug now() "File upload completed"
+
+    # Output file names
+    full_s3_target = "$(context.storage_uri)/$(figure_output_name_relative)"
+
+    @debug now() "Initiating file upload of figure"
+    upload_directory(
+        client, joinpath(output_dir, figure_output_name_relative), full_s3_target
+    )
+    @debug now() "File upload completed"
+
+    # Need to upload!
+    return AdriaModelRunOutput(result_set_name, figure_output_name_relative)
 end
 
 #
@@ -252,5 +305,5 @@ function __init__()
         AdriaModelRunOutput
     )
 
-    @debug "Jobs module initialized with handlers"
+    @debug "ADRIA Jobs module initialized with handlers"
 end
