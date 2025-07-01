@@ -25,7 +25,7 @@ This worker template integrates with the ReefGuide ecosystem, connecting to the 
 
 1. Copy the environment template:
    ```bash
-   cp .env.local .env
+   cp .env.dist .env
    ```
 2. Navigate to the `sandbox/` directory
 3. Initialize the project:
@@ -41,7 +41,7 @@ This worker template integrates with the ReefGuide ecosystem, connecting to the 
 
 1. Copy the environment template:
    ```bash
-   cp .env.local .env
+   cp .env.dist .env
    ```
 2. Build the Docker image:
    ```bash
@@ -98,7 +98,7 @@ end
 
 ### Configuration
 
-Configure the worker through environment variables (see `.env.local` for examples):
+Configure the worker through environment variables (see `.env.dist` for examples):
 
 - **`API_ENDPOINT`**: ReefGuide API base URL
 - **`JOB_TYPES`**: Comma-separated list of job types to handle

@@ -3,6 +3,9 @@ This is the file where handlers, input and output payloads are registered to
 handle jobs for this worker.
 """
 
+using ADRIA
+using CairoMakie, GeoMakie, GraphMakie
+
 # ================
 # Type Definitions
 # ================
@@ -210,13 +213,21 @@ function handle_job(
 )::AdriaModelRunOutput
     @debug "Processing test job with id: $(input.id)"
 
-    # Simulate processing time
-    sleep(10)
+    # Define the domain data path
+    data_pkg_path = "../data/Moore_2025-01-17_v070_rc1"
+    # load the domain (RCP 4.5)
+    domain = ADRIA.load_domain(data_pkg_path, "45")
+    # generate scenarios (must be power of 2)
+    scenarios = ADRIA.sample(domain, 128)
+    # run generated scenarios for RCP 4.5
+    result = ADRIA.run_scenarios(domain, scenarios, "45")
+    # generate a figure from the result
+    relative_cover = ADRIA.metrics.scenario_relative_cover(result)
+    fig = ADRIA.viz.scenarios(result, relative_cover)
+    save("../data/output.png", fig)
 
     @debug "Finished test job with id: $(input.id)"
     @debug "Could write something to $(context.storage_uri) if desired."
-
-    # Try loading the domain data package 
 
     # This is where the actual job processing would happen
     # For now, we just return a dummy output
