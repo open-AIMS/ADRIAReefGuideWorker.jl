@@ -89,7 +89,7 @@ end
 # Handler implementation
 struct TestHandler <: AbstractJobHandler end
 
-function handle_job(::TestHandler, input::TestInput, context::HandlerContext)::TestOutput
+function handle_job(::TestHandler, input::TestInput, context::JobContext)::TestOutput
     @debug "Processing test job with id: $(input.id)"
     sleep(10)  # Simulate work
     return TestOutput()
@@ -111,7 +111,7 @@ Configure the worker through environment variables (see `.env.dist` for examples
 Workers can read from and write to S3-compatible storage:
 
 - Each job assignment includes a unique `storage_uri` for outputs
-- Use the provided `HandlerContext` to access storage configuration
+- Use the provided `JobContext` to access storage configuration
 - Support for both AWS S3 and local MinIO development environments
 
 ## Adding New Job Types

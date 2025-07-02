@@ -11,6 +11,71 @@ using CairoMakie, GeoMakie, GraphMakie
 # ================
 
 """
+Represents a job that needs to be processed
+"""
+struct Job
+    "Job ID in the DB"
+    id::Int64
+    "What type of Job - strict set of enums"
+    type::String
+    "The payload defining the job parameters - should correspond to input payload type registered in Jobs.jl"
+    input_payload::Any
+end
+
+"""
+Represents an assignment for a job
+"""
+struct JobAssignment
+    "ID of the assignment in the DB"
+    id::Int64
+    "ID of the tasked job"
+    job_id::Int64
+    "Path to where the data can be stored (in s3)"
+    storage_uri::String
+end
+
+"""
+Context provided to job handlers with all necessary information
+"""
+struct JobContext
+    "Worker configuration"
+    config::WorkerConfig
+    "The job to be processed"
+    job::Job
+    "The job assignment details"
+    assignment::JobAssignment
+    "The API client for making HTTP requests"
+    http_client::AuthApiClient
+    "Storage client e.g. s3"
+    storage_client::StorageClient
+    "Task metadata"
+    task_metadata::Any
+    "AWS region for s3 storage"
+    aws_region::String
+    "S3 endpoint"
+    s3_endpoint::OptionalValue{String}
+
+    "Constructor that takes all fields"
+    function JobContext(;
+        config::WorkerConfig,
+        job::Job,
+        assignment::JobAssignment,
+        http_client::AuthApiClient,
+        storage_client::StorageClient,
+        task_metadata::Any
+    )
+        return new(
+            config,
+            job,
+            assignment,
+            http_client,
+            storage_client,
+            task_metadata
+        )
+    end
+end
+
+"""
 Enum for job types matching the API definition
 """
 @enum JobType begin
@@ -163,7 +228,7 @@ end
 Process a job using the appropriate handler
 """
 function process_job(
-    job_type::JobType, input_payload::Any, context::HandlerContext
+    job_type::JobType, input_payload::Any, context::JobContext
 )::AbstractJobOutput
     # Get the registered handler
     handler = get_job_handler(job_type)
@@ -215,7 +280,7 @@ struct AdriaModelRunHandler <: AbstractJobHandler end
 Process an ADRIA_MODEL_RUN job
 """
 function handle_job(
-    ::AdriaModelRunHandler, input::AdriaModelRunInput, context::HandlerContext
+    ::AdriaModelRunHandler, input::AdriaModelRunInput, context::JobContext
 )::AdriaModelRunOutput
     @info "Starting ADRIA model run"
     start_time = time()
@@ -274,22 +339,20 @@ function handle_job(
     @debug "Saving plot to disk"
     save(joinpath(output_dir, figure_output_name_relative), fig)
 
-    # Now upload this to s3 
-    client = S3StorageClient(; region=context.aws_region, s3_endpoint=context.s3_endpoint)
-
     # Output file names
-    full_s3_target = "$(context.storage_uri)/$(result_set_name)"
+    full_s3_target = "$(context.assignment.storage_uri)/$(result_set_name)"
 
     @debug now() "Initiating file upload of result set"
     upload_directory(client, joinpath(output_dir, result_set_name), full_s3_target)
     @debug now() "File upload completed"
 
     # Output file names
-    full_s3_target = "$(context.storage_uri)/$(figure_output_name_relative)"
+    full_s3_target = "$(context.assignment.storage_uri)/$(figure_output_name_relative)"
 
     @debug now() "Initiating file upload of figure"
     upload_file(
-        client, joinpath(output_dir, figure_output_name_relative), full_s3_target
+        context.storage_client, joinpath(output_dir, figure_output_name_relative),
+        full_s3_target
     )
     @debug now() "File upload completed"
 

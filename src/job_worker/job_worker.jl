@@ -8,10 +8,10 @@ using Random
 using JSONWebTokens
 using Minio
 
+include("storage_client.jl")
+include("http_client.jl")
 include("config.jl")
 include("ecs.jl")
-include("http_client.jl")
 include("handler_helpers.jl")
 include("handlers.jl")
-include("storage_client.jl")
 include("worker.jl")

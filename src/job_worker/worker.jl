@@ -5,72 +5,12 @@ reports back jobs done, on a loop, until idle for a configurable idle time.
 """
 
 """
-Represents a job that needs to be processed
-"""
-struct Job
-    "Job ID in the DB"
-    id::Int64
-    "What type of Job - strict set of enums"
-    type::String
-    "The payload defining the job parameters - should correspond to input payload type registered in Jobs.jl"
-    input_payload::Any
-end
-
-"""
-Represents an assignment for a job
-"""
-struct JobAssignment
-    "ID of the assignment in the DB"
-    id::Int64
-    "ID of the tasked job"
-    job_id::Int64
-    "Path to where the data can be stored (in s3)"
-    storage_uri::String
-end
-
-"""
 API Response after an assignment
 """
 struct JobAssignmentResponse
     assignment::JobAssignment
 end
 
-"""
-Context provided to job handlers with all necessary information
-"""
-struct JobContext
-    "The job to be processed"
-    job::Job
-    "The job assignment details"
-    assignment::JobAssignment
-    "The API client for making HTTP requests"
-    http_client::AuthApiClient
-    "Task metadata"
-    task_metadata::Any
-    "AWS region for s3 storage"
-    aws_region::String
-    "S3 endpoint"
-    s3_endpoint::OptionalValue{String}
-
-    "Constructor that takes all fields"
-    function JobContext(;
-        job::Job,
-        assignment::JobAssignment,
-        http_client::AuthApiClient,
-        task_metadata::Any,
-        aws_region::String="ap-southeast-2",
-        s3_endpoint::OptionalValue{String}=nothing
-    )
-        return new(
-            job,
-            assignment,
-            http_client,
-            task_metadata,
-            aws_region,
-            s3_endpoint
-        )
-    end
-end
 
 """
 Job handler type definition - a function that processes jobs of a specific type
@@ -119,12 +59,7 @@ function process(::TypedJobHandler, context::JobContext)
         # Process the job using the Jobs framework
         @debug "Processing job $(context.job.id) with type $(job_type_str)"
         output::AbstractJobOutput = process_job(
-            job_type, context.job.input_payload,
-            HandlerContext(;
-                storage_uri=storage_uri,
-                aws_region=context.aws_region,
-                s3_endpoint=context.s3_endpoint
-            )
+            job_type, context.job.input_payload, context
         )
 
         @debug "Result from process_job $(output)"
@@ -161,6 +96,9 @@ mutable struct WorkerService
     "HTTP client for API calls"
     http_client::Any
 
+    "Storage client"
+    storage_client::StorageClient
+
     "Task identifiers and other metadata about this running service"
     metadata::TaskIdentifiers
 
@@ -170,11 +108,15 @@ mutable struct WorkerService
     "Job handlers registry - maps job types to handler functions"
     job_handlers::Dict{String,JobHandler}
 
-    function WorkerService(config::WorkerConfig, http_client, identifiers; mock::Bool=false)
+    function WorkerService(;
+        config::WorkerConfig, http_client, storage_client::StorageClient, identifiers,
+        mock::Bool=false
+    )
         worker = new(
             config,
             false,
             http_client,
+            storage_client,
             identifiers,
             now(),
             Dict{String,JobHandler}()
@@ -286,8 +228,10 @@ function run_worker_loop(worker::WorkerService)
             @debug "Checking for idle timeout"
             check_idle_timeout(worker)
 
-            # Sleep before next poll
-            sleep(worker.config.poll_interval_ms / 1000)
+            # Sleep before next poll (but only if we didn't find something)
+            if isnothing(job)
+                sleep(worker.config.poll_interval_ms / 1000)
+            end
         catch e
             @error "Error in worker loop: $e" exception = (e, catch_backtrace())
             # Sleep briefly before retrying to avoid hammering the API on errors
@@ -391,12 +335,12 @@ function process_job_completely(worker::WorkerService, job::Job)
 
         # Create context for the handler
         context = JobContext(;
+            config=worker.config,
             job=job,
             assignment=assignment,
             http_client=worker.http_client,
-            task_metadata=worker.metadata,
-            aws_region=worker.config.aws_region,
-            s3_endpoint=worker.config.s3_endpoint
+            storage_client=worker.storage_client,
+            task_metadata=worker.metadata
         )
 
         # Process the job with the handler

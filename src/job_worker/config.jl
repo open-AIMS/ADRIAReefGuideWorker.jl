@@ -61,6 +61,7 @@ Base.showerror(io::IO, e::ConfigValidationError) = print(
     io, "ConfigValidationError: $(e.field) - $(e.message)"
 )
 
+
 """
 Validates a URL string
 """
@@ -174,10 +175,13 @@ function create_worker_from_env()::WorkerService
     # Create credentials and API client
     credentials = Credentials(config.username, config.password)
     http_client = AuthApiClient(config.api_endpoint, credentials)
+    storage_client = S3StorageClient(;
+        region=config.aws_region, s3_endpoint=config.s3_endpoint
+    )
 
     # Get the ECS task metadata
     identifiers::TaskIdentifiers = get_task_metadata_safe()
 
     # Create and return worker instance
-    return WorkerService(config, http_client, identifiers)
+    return WorkerService(; config, http_client, storage_client, identifiers)
 end
