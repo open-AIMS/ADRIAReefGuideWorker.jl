@@ -23,6 +23,10 @@ struct WorkerConfig
     "S3 Endpoint for local S3 compatibility"
     s3_endpoint::OptionalValue{String}
 
+    # CUSTOM added config
+    data_package_path::String
+    data_scratch_space::String
+
     # Kwarg constructor
     function WorkerConfig(;
         api_endpoint::String,
@@ -34,7 +38,10 @@ struct WorkerConfig
         poll_interval_ms::Int64=2000,
         # Idle timeout 5 minutes by default
         idle_timeout_ms::Int64=5 * 60 * 1000,
-        s3_endpoint::OptionalValue{String}=nothing
+        s3_endpoint::OptionalValue{String}=nothing,
+        # CUSTOM ADDED
+        data_package_path::String,
+        data_scratch_space::String
     )
         return new(
             api_endpoint,
@@ -44,7 +51,9 @@ struct WorkerConfig
             poll_interval_ms,
             idle_timeout_ms,
             aws_region,
-            s3_endpoint
+            s3_endpoint,
+            data_package_path,
+            data_scratch_space
         )
     end
 end
@@ -60,7 +69,6 @@ end
 Base.showerror(io::IO, e::ConfigValidationError) = print(
     io, "ConfigValidationError: $(e.field) - $(e.message)"
 )
-
 
 """
 Validates a URL string
@@ -152,6 +160,23 @@ function load_config_from_env()::WorkerConfig
         Int64, something(get_env("IDLE_TIMEOUT_MS", false), string(5 * 60 * 1000))
     )
 
+    # CUSTOM ADDED
+    data_package_path = get_env("DATA_PACKAGE_PATH")
+    if isempty(data_package_path)
+        throw(
+            ConfigValidationError(
+                "DATA_PACKAGE_PATH", "DATA_PACKAGE_PATH cannot be undefined"
+            )
+        )
+    end
+    data_scratch_space = get_env("DATA_SCRATCH_SPACE")
+    if isempty(data_scratch_space)
+        throw(
+            ConfigValidationError(
+                "DATA_SCRATCH_SPACE", "DATA_SCRATCH_SPACE cannot be undefined"
+            )
+        )
+    end
     # Create and return the config object using keyword arguments
     return WorkerConfig(;
         api_endpoint,
@@ -161,7 +186,10 @@ function load_config_from_env()::WorkerConfig
         poll_interval_ms,
         idle_timeout_ms,
         aws_region,
-        s3_endpoint
+        s3_endpoint,
+        # CUSTOM ADDED
+        data_package_path,
+        data_scratch_space
     )
 end
 

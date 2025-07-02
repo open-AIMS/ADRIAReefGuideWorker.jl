@@ -43,7 +43,8 @@ function update_domain_with_params!(; domain, params::Vector{ModelParam})
     end
 end
 
-"""
+""" 
+
 Move ADRIA result set from output directory to target location with specified name.
 
 Reads ADRIA_OUTPUT_DIR environment variable, validates there's exactly one folder,
@@ -146,4 +147,127 @@ function move_result_set_to_determined_location(;
     @info "Result set successfully moved and validated" target_path
 
     return target_path
+end
+
+"""
+    create_unique_folder(; base_dir::String, prefix::String="folder", suffix::String="")
+
+Create a unique folder name within the specified base directory.
+
+# Arguments
+- `base_dir::String`: Base directory where the folder will be created
+- `prefix::String="folder"`: Prefix for the folder name (default: "folder")  
+- `suffix::String=""`: Optional suffix for the folder name
+
+# Returns
+- `String`: Full path to the unique folder
+
+# Example
+```julia
+path = create_unique_folder(base_dir="/tmp", prefix="data", suffix="_backup")
+# Returns something like: "/tmp/data_20240702_143052_abc123_backup"
+```
+"""
+function create_unique_folder(;
+    base_dir::String, prefix::String="folder", suffix::String=""
+)
+    # Ensure base directory exists
+    if !isdir(base_dir)
+        @info "Base directory does not exist, creating"
+        mkdir(base_dir)
+    end
+
+    # Generate unique identifier using timestamp and random string
+    timestamp = Dates.format(now(), "yyyymmdd_HHMMSS")
+    random_id = randstring(6)
+
+    # Construct folder name
+    folder_name = "$(prefix)_$(timestamp)_$(random_id)$(suffix)"
+    full_path = joinpath(base_dir, folder_name)
+
+    # Handle extremely unlikely collision
+    counter = 1
+    while isdir(full_path)
+        folder_name = "$(prefix)_$(timestamp)_$(random_id)_$(counter)$(suffix)"
+        full_path = joinpath(base_dir, folder_name)
+        counter += 1
+    end
+
+    # create the path 
+    mkpath(full_path)
+    return full_path
+end
+
+"""
+    set_adria_output_dir(unique_path::String)
+
+Update the ADRIA_OUTPUT_DIR environment variable to the specified path.
+
+# Arguments
+- `unique_path::String`: The new path to set for ADRIA_OUTPUT_DIR
+
+# Example
+```julia
+unique_path = create_unique_folder(base_dir="../data/outputs", prefix="run")
+set_adria_output_dir(unique_path)
+```
+"""
+function set_adria_output_dir(path::String)
+    ENV["ADRIA_OUTPUT_DIR"] = path
+    @info "Updated ADRIA_OUTPUT_DIR to: $path"
+end
+
+"""
+    rmdir(dir_path::String; verbose::Bool=true)
+
+Safely remove a directory and all its contents programmatically.
+
+# Arguments
+- `dir_path::String`: Path to the directory to remove
+- `verbose::Bool=true`: If true, log deletion progress
+
+# Safety Features
+- Validates directory exists before attempting deletion
+- Prevents deletion of critical system directories (/, /home, /usr, etc.)
+- Handles permission errors gracefully
+
+# Returns
+- `Bool`: true if deletion successful, false otherwise
+
+# Example
+```julia
+success = rmdir("/tmp/my_temp_folder")
+rmdir("/path/to/folder", verbose=false)
+```
+"""
+function rmdir(dir_path::String; verbose::Bool=true)
+    # Normalize path to get absolute path
+    normalized_path = abspath(dir_path)
+
+    # Check if directory exists
+    if !isdir(normalized_path)
+        verbose && @warn "Directory does not exist: $normalized_path"
+        return false
+    end
+
+    # Safety check: prevent deletion of critical system directories
+    # Check for exact matches only, not path prefixes
+    dangerous_paths = [
+        "/", "/home", "/usr", "/bin", "/sbin", "/etc", "/var", "/boot", "/opt"
+    ]
+    if normalized_path in dangerous_paths
+        @error "Refusing to delete system directory: $normalized_path"
+        return false
+    end
+
+    # Attempt deletion
+    try
+        verbose && @info "Removing directory: $normalized_path"
+        rm(normalized_path; recursive=true, force=true)
+        verbose && @info "Successfully removed: $normalized_path"
+        return true
+    catch e
+        @error "Failed to remove directory: $e"
+        return false
+    end
 end

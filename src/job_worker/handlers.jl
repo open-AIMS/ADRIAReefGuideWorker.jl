@@ -276,88 +276,161 @@ Handler for ADRIA_MODEL_RUN jobs
 """
 struct AdriaModelRunHandler <: AbstractJobHandler end
 
+# ========================
+# ADRIA Model Run Handler
+# ========================
+
 """
 Process an ADRIA_MODEL_RUN job
 """
 function handle_job(
-    ::AdriaModelRunHandler, input::AdriaModelRunInput, context::JobContext
+    ::AdriaModelRunHandler,
+    input::AdriaModelRunInput,
+    context::JobContext
 )::AdriaModelRunOutput
-    @info "Starting ADRIA model run"
+    @info "Starting ADRIA model run" job_id = context.job.id assignment_id =
+        context.assignment.id
     start_time = time()
 
     # Use provided RCP scenario or default to "45"
     rcp_scenario = something(input.rcp_scenario, "45")
     @info "Using RCP scenario: $rcp_scenario"
+    @debug "Input parameters" num_scenarios = input.num_scenarios num_custom_params = length(
+        input.model_params
+    )
 
     # Define the domain data path
-    # TODO (make configurable)
-    data_pkg_path = "../data/Moore_2025-01-17_v070_rc1"
+    data_pkg_path = context.config.data_package_path
+    @debug "Data package path configured" path = data_pkg_path
 
     # Load the domain
     @info "Loading domain data from: $data_pkg_path"
+    domain_load_start = time()
     domain = ADRIA.load_domain(data_pkg_path, rcp_scenario)
+    domain_load_time = time() - domain_load_start
+    @debug "Domain loaded successfully" load_time_seconds = round(
+        domain_load_time; digits=2
+    )
 
     # Apply custom parameters if provided
     if !isempty(input.model_params)
         @info "Applying $(length(input.model_params)) custom model parameters"
+        @debug "Custom parameters" params = input.model_params
+        param_start = time()
         update_domain_with_params!(; domain, params=input.model_params)
+        param_time = time() - param_start
+        @debug "Custom parameters applied" update_time_seconds = round(param_time; digits=2)
+    else
+        @debug "No custom parameters provided, using defaults"
     end
 
     # Generate scenarios with the specified number
     @info "Generating $(input.num_scenarios) scenarios"
+    scenario_gen_start = time()
     scenarios = ADRIA.sample(domain, input.num_scenarios)
+    scenario_gen_time = time() - scenario_gen_start
+    @debug "Scenarios generated" generation_time_seconds = round(
+        scenario_gen_time; digits=2
+    )
 
-    # Run the scenarios
+    # Determine unique parent directory 
+    @debug "Creating unique working directory" base_dir = context.config.data_scratch_space
+    unique_parent_folder = create_unique_folder(;
+        base_dir=context.config.data_scratch_space
+    )
+    work_directory = joinpath(unique_parent_folder, "work")
+    upload_directory_path = joinpath(unique_parent_folder, "uploads")
+    @debug "Working directories created" parent = unique_parent_folder work = work_directory upload =
+        upload_directory_path
+
+    # Create directories
+    mkpath(work_directory)
+    mkpath(upload_directory_path)
+    @debug "Directory structure created successfully"
+
+    # Tell ADRIA to write with this folder as parent
+    set_adria_output_dir(work_directory)
+
+    # Run the scenarios (in the above unique parent directory)
     @info "Running scenarios for RCP $rcp_scenario"
+    simulation_start = time()
     result = ADRIA.run_scenarios(domain, scenarios, rcp_scenario)
+    simulation_time = time() - simulation_start
+    @info "ADRIA scenarios completed" simulation_time_seconds = round(
+        simulation_time; digits=2
+    )
+
+    # Generate the relative cover metric
+    @debug "Generating relative cover metric from result set"
+    metric_start = time()
+    relative_cover = ADRIA.metrics.scenario_relative_cover(result)
+    metric_time = time() - metric_start
+    @debug "Relative cover metric generated" processing_time_seconds = round(
+        metric_time; digits=2
+    )
+
+    # Generate output plot and save to disk
+    @info "Building plot of relative coral cover"
+    figure_output_name_relative = "figure.png"
+    figure_full_path = joinpath(upload_directory_path, figure_output_name_relative)
+    @debug "Generating visualization" output_path = figure_full_path
+
+    viz_start = time()
+    fig = ADRIA.viz.scenarios(result, relative_cover)
+    save(figure_full_path, fig)
+    viz_time = time() - viz_start
+    @debug "Visualization saved successfully" save_time_seconds = round(viz_time; digits=2)
+
+    # Move the output result set into a predictable location
+    rs_output_name = "result_set"
+    @debug "Moving result set to upload directory" target_name = rs_output_name
+    move_start = time()
+    # TODO: ADRIA should be able to specify this
+    move_result_set_to_determined_location(;
+        target_location=upload_directory_path,
+        folder_name=rs_output_name
+    )
+    move_time = time() - move_start
+    @debug "Result set moved successfully" move_time_seconds = round(move_time; digits=2)
+
+    # Clean up memory before upload
+    @debug "Cleaning up large objects from memory"
+    result = nothing
+    domain = nothing
+    GC.gc()
+    @debug "Memory cleanup completed"
+
+    # Upload results
+    @info "Initiating file upload to S3" storage_uri = context.assignment.storage_uri
+    upload_start = time()
+    upload_directory(
+        context.storage_client, upload_directory_path, context.assignment.storage_uri
+    )
+    upload_time = time() - upload_start
+    @info "File upload completed successfully" upload_time_seconds = round(
+        upload_time; digits=2
+    )
+
+    # Clean up scratch space
+    @debug "Cleaning up scratch space" cleanup_path = unique_parent_folder
+    cleanup_success = rmdir(unique_parent_folder; verbose=false)
+    if cleanup_success
+        @debug "Scratch space cleaned up successfully"
+    else
+        @warn "Failed to clean up scratch space" path = unique_parent_folder
+    end
 
     execution_time = time() - start_time
-    @info "ADRIA model run completed in $(round(execution_time, digits=2)) seconds"
-
-    # Move and rename the output to specified location
-    # TODO this won't be necessary once we can 
-    result_set_name = "result_set"
-    output_dir = "../data/uploads"
-    move_result_set_to_determined_location(;
-        target_location=output_dir,
-        folder_name=result_set_name
+    @info "ADRIA model run completed successfully" total_time_seconds = round(
+        execution_time; digits=2
     )
 
-    # Reload the result set as it doesn't like the files moving!
-    @debug "Loading result set from new location"
-    result = ADRIA.load_results(joinpath(output_dir, result_set_name))
-
-    # generate the relative cover metric
-    @debug "Generating relative cover metric from result set"
-    relative_cover = ADRIA.metrics.scenario_relative_cover(result)
-
-    # generate output plot
-    @debug "Building plot of relative coral cover"
-    fig = ADRIA.viz.scenarios(result, relative_cover)
-
-    figure_output_name_relative = "figure.png"
-    @debug "Saving plot to disk"
-    save(joinpath(output_dir, figure_output_name_relative), fig)
-
-    # Output file names
-    full_s3_target = "$(context.assignment.storage_uri)/$(result_set_name)"
-
-    @debug now() "Initiating file upload of result set"
-    upload_directory(client, joinpath(output_dir, result_set_name), full_s3_target)
-    @debug now() "File upload completed"
-
-    # Output file names
-    full_s3_target = "$(context.assignment.storage_uri)/$(figure_output_name_relative)"
-
-    @debug now() "Initiating file upload of figure"
-    upload_file(
-        context.storage_client, joinpath(output_dir, figure_output_name_relative),
-        full_s3_target
+    return AdriaModelRunOutput(
+        # result set
+        joinpath(context.assignment.storage_uri, rs_output_name),
+        # figure
+        joinpath(context.assignment.storage_uri, figure_output_name_relative)
     )
-    @debug now() "File upload completed"
-
-    # Need to upload!
-    return AdriaModelRunOutput(result_set_name, figure_output_name_relative)
 end
 
 #
