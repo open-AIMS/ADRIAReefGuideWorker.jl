@@ -369,17 +369,41 @@ function handle_job(
         metric_time; digits=2
     )
 
-    # Generate output plot and save to disk
-    @info "Building plot of relative coral cover"
-    figure_output_name_relative = "figure.png"
-    figure_full_path = joinpath(upload_directory_path, figure_output_name_relative)
-    @debug "Generating visualization" output_path = figure_full_path
+    # Generate output plots and save to disk
+    @info "Building plots of relative coral cover"
+    vega_output_name_png = "figure.png"
+    vega_output_name_spec = "relative_cover_vega_spec.vegalite"
+
+    vega_png_full_path = joinpath(upload_directory_path, vega_output_name_png)
+    vega_spec_full_path = joinpath(upload_directory_path, vega_output_name_spec)
+
+    @debug "Generating visualizations" vega_png_path = vega_png_full_path vega_spec_path =
+        vega_spec_full_path
 
     viz_start = time()
-    fig = ADRIA.viz.scenarios(result, relative_cover)
-    save(figure_full_path, fig)
+
+    # Generate new VegaLite plot
+    vega_plot = plot_adria_scenarios(
+        scenarios,
+        result,
+        relative_cover;
+        title="Relative Coral Cover Over Time",
+        y_label="Relative Cover",
+        plot_style=:confidence_bands
+    )
+
+    # Save VegaLite plot as PNG
+    save(vega_png_full_path, vega_plot)
+    @debug "VegaLite PNG visualization saved"
+
+    # Save VegaLite spec as JSON
+    save(vega_spec_full_path, vega_plot)
+    @debug "VegaLite spec saved"
+
     viz_time = time() - viz_start
-    @debug "Visualization saved successfully" save_time_seconds = round(viz_time; digits=2)
+    @debug "All visualizations saved successfully" save_time_seconds = round(
+        viz_time; digits=2
+    )
 
     # Move the output result set into a predictable location
     rs_output_name = "result_set"
@@ -423,13 +447,13 @@ function handle_job(
     execution_time = time() - start_time
     @info "ADRIA model run completed successfully" total_time_seconds = round(
         execution_time; digits=2
-    )
+    ) files_generated = 4  # result_set + figure.png + vega.png + vega.vegalite
 
     return AdriaModelRunOutput(
         # result set
-        joinpath(context.assignment.storage_uri, rs_output_name),
+        rs_output_name,
         # figure
-        joinpath(context.assignment.storage_uri, figure_output_name_relative)
+        vega_output_name_png
     )
 end
 
