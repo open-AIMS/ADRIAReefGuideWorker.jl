@@ -11,7 +11,6 @@ struct JobAssignmentResponse
     assignment::JobAssignment
 end
 
-
 """
 Job handler type definition - a function that processes jobs of a specific type
 """
@@ -266,8 +265,6 @@ function poll_for_job(worker::WorkerService)::Union{Job,Nothing}
             worker.http_client, "/jobs/poll";
         )
 
-        @debug "Response from jobs poll: $(response)"
-
         # Check if we have jobs in the response
         if isempty(response.jobs)
             @debug "No jobs available in response"
@@ -276,14 +273,16 @@ function poll_for_job(worker::WorkerService)::Union{Job,Nothing}
 
         jobs = response.jobs
 
+        @debug "Number of jobs from jobs poll: $(length(jobs))"
+
         # Return the first available job which is of a type that we can handle
         for (i, job_data) in enumerate(jobs)
-            @debug "Processing Job[$(i)] = $(job_data)"
+            @debug "Processing Job[$(i)]"
 
             try
                 # Parse the job data
                 parsed = JSON3.read(JSON3.write(job_data), Job)
-                @debug "Result of parsing: $(parsed)"
+                @debug "Parsed job with id $(parsed.id)"
 
                 # Check if this job type is one we can handle
                 if parsed.type in worker.config.job_types
