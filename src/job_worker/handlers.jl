@@ -375,7 +375,7 @@ function handle_job(
     vega_output_name_spec = "relative_cover_vega_spec.vegalite"
     vega_spec_full_path = joinpath(upload_directory_path, vega_output_name_spec)
 
-    @debug "Generating visualizations" vega_png_path = vega_png_full_path vega_spec_path =
+    @debug "Generating visualizations" vega_spec_path =
         vega_spec_full_path
 
     viz_start = time()
