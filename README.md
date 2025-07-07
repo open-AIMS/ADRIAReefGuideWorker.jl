@@ -1,132 +1,92 @@
 # ADRIAReefGuideWorker.jl
 
-A Julia-based worker template for the [open-AIMS/reefguide](https://github.com/open-AIMS/reefguide) distributed job processing system. This template provides a foundation for implementing custom job handlers that can process tasks from the ReefGuide job queue.
+A specialized Julia worker for running ADRIA coral reef simulation models within the [ReefGuide](https://github.com/open-AIMS/reefguide) distributed job processing system. This is a prototype/proof-of-concept implementation that processes `ADRIA_MODEL_RUN` jobs.
 
-## Context
+## What It Does
 
-This worker template integrates with the ReefGuide ecosystem, connecting to the ReefGuide web API to receive and process distributed computing tasks. The `API_ENDPOINT` environment variable should point to your ReefGuide web API instance.
+The worker processes ADRIA model run jobs that:
 
-**For local development**: First spin up the local ReefGuide stack by following the setup instructions in the [ReefGuide README](https://github.com/open-AIMS/reefguide). This will provide the necessary API endpoint and supporting services (database, S3 storage, etc.) that the worker connects to.
+- Load coral reef domain data from specified data packages
+- Generate scenarios with customizable model parameters
+- Run ADRIA coral reef simulations under different climate scenarios (RCP 2.6, 4.5, 8.5)
+- Calculate coral cover metrics and generate visualizations
+- Upload results to S3-compatible storage for analysis
+
+Each job produces:
+
+- Complete ADRIA result dataset
+- VegaLite visualization specifications showing coral cover trends by scenario type
 
 ## Quick Start
 
 ### Prerequisites
 
-- Install Julia 1.11.x using [juliaup](https://github.com/JuliaLang/juliaup):
-  ```bash
-  curl -fsSL https://install.julialang.org | sh
-  juliaup add 1.11
-  juliaup default 1.11
-  ```
+- Julia 1.11.x via [juliaup](https://github.com/JuliaLang/juliaup)
+- Access to a running ReefGuide API instance
+- ADRIA-compatible reef domain data package
 
-### Setup and Development
+### Setup
 
-#### Local Development
-
-1. Copy the environment template:
+1. Copy environment configuration:
    ```bash
    cp .env.dist .env
    ```
-2. Navigate to the `sandbox/` directory
-3. Initialize the project:
+2. Update `.env` with your settings (see configuration below)
+3. Initialize and start:
    ```bash
+   cd sandbox/
    ./init.sh
-   ```
-4. Start the development environment:
-   ```bash
    ./start.sh
    ```
 
-#### Docker Development
+## Configuration
 
-1. Copy the environment template:
-   ```bash
-   cp .env.dist .env
-   ```
-2. Build the Docker image:
-   ```bash
-   docker build . -t worker
-   ```
-3. Run the container:
-   ```bash
-   docker run --env-file .env worker
-   ```
+Configure via environment variables in `.env`:
 
-## How It Works
+### ReefGuide Connection
 
-### Core Architecture
+- **`API_ENDPOINT`**: ReefGuide web API URL
+- **`JOB_TYPES`**: Should be `ADRIA_MODEL_RUN`
+- **`WORKER_USERNAME/PASSWORD`**: Authentication credentials
 
-The worker operates on a polling-based architecture:
+### Data Paths
 
-1. **Polling**: Continuously polls the ReefGuide API for available jobs
-2. **Job Assignment**: Claims jobs that match its configured job types
-3. **Processing**: Executes the appropriate handler for each job type
-4. **Completion**: Reports results back to the API
-5. **Idle Timeout**: Automatically shuts down after a configurable period of inactivity
+- **`DATA_PACKAGE_PATH`**: Path to ADRIA domain data package (e.g. Moore reef cluster data)
+- **`DATA_SCRATCH_SPACE`**: Working directory for temporary files
 
-### Job Handlers
+### ADRIA Library Settings
 
-Job processing is handled through a type-safe registry system:
+These are consumed directly by the ADRIA.jl library:
 
-- **Job Types**: Defined as enums in `handlers.jl` (e.g., `TEST`)
-- **Input/Output Types**: Strongly typed payloads for each job type
-- **Handlers**: Implement the `AbstractJobHandler` interface to process specific job types
+- **`ADRIA_OUTPUT_DIR`**: Where ADRIA writes simulation outputs
+- **`ADRIA_NUM_CORES`**: Number of CPU cores for parallel processing
+- **`ADRIA_DEBUG`**: Enable ADRIA debug logging
+- **`ADRIA_THRESHOLD`**: Numerical threshold for ADRIA calculations
 
-### Example: TEST Job Handler
+### Storage (Development)
 
-The template includes a complete example:
+For local development with MinIO:
 
-```julia
-# Input payload structure
-struct TestInput <: AbstractJobInput
-    id::Int64
-end
+- **`S3_ENDPOINT`**: MinIO endpoint (e.g. `http://localhost:9000`)
+- **`MINIO_USERNAME/PASSWORD`**: MinIO credentials
 
-# Output payload structure
-struct TestOutput <: AbstractJobOutput
-end
+## Example Job
 
-# Handler implementation
-struct TestHandler <: AbstractJobHandler end
+Jobs specify:
 
-function handle_job(::TestHandler, input::TestInput, context::JobContext)::TestOutput
-    @debug "Processing test job with id: $(input.id)"
-    sleep(10)  # Simulate work
-    return TestOutput()
-end
+- Number of scenarios to generate
+- Custom model parameters (optional)
+- RCP climate scenario (defaults to RCP 4.5)
+
+The worker runs the full ADRIA simulation pipeline and returns paths to the generated results and visualizations in S3 storage.
+
+## Docker
+
+```bash
+docker build . -t adria-worker
+docker run --env-file .env adria-worker
 ```
 
-### Configuration
+---
 
-Configure the worker through environment variables (see `.env.dist` for examples):
-
-- **`API_ENDPOINT`**: ReefGuide API base URL
-- **`JOB_TYPES`**: Comma-separated list of job types to handle
-- **`WORKER_USERNAME/PASSWORD`**: Authentication credentials
-- **`AWS_REGION`**: AWS region for S3 storage
-- **`S3_ENDPOINT`**: Optional S3-compatible endpoint (for local development)
-
-### Storage Integration
-
-Workers can read from and write to S3-compatible storage:
-
-- Each job assignment includes a unique `storage_uri` for outputs
-- Use the provided `JobContext` to access storage configuration
-- Support for both AWS S3 and local MinIO development environments
-
-## Adding New Job Types
-
-1. Define the job type enum in `handlers.jl`
-2. Create input/output payload structs
-3. Implement a handler struct and `handle_job` method
-4. Register the handler in the `__init__()` function
-
-## Development vs Production
-
-- **Development**: Uses local MinIO for S3 storage and local API endpoint
-- **Production**: Runs in AWS ECS Fargate with proper AWS S3 integration
-- **Docker**: Includes multi-stage Dockerfile for containerized deployment
-
-## Threading
-
-The worker is designed to be single-threaded per job but can utilize Julia's threading for computationally intensive tasks within job handlers.
+Based on the [ReefGuideWorker julia template](https://github.com/open-AIMS/ReefGuideWorkerTemplate.jl) for the ReefGuide distributed computing system.

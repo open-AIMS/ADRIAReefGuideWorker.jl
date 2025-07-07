@@ -267,7 +267,7 @@ Output payload for ADRIA_MODEL_RUN job
 struct AdriaModelRunOutput <: AbstractJobOutput
     # Relative S3 storage location of result set
     output_result_set_path::String
-    # Relative S3 storage location of figure (png)
+    # Relative S3 storage location of figure (vegalite spec)
     output_figure_path::String
 end
 
@@ -371,10 +371,8 @@ function handle_job(
 
     # Generate output plots and save to disk
     @info "Building plots of relative coral cover"
-    vega_output_name_png = "figure.png"
+    # NOTE: file extension -> compile to spec (including data embedded)
     vega_output_name_spec = "relative_cover_vega_spec.vegalite"
-
-    vega_png_full_path = joinpath(upload_directory_path, vega_output_name_png)
     vega_spec_full_path = joinpath(upload_directory_path, vega_output_name_spec)
 
     @debug "Generating visualizations" vega_png_path = vega_png_full_path vega_spec_path =
@@ -392,10 +390,6 @@ function handle_job(
         plot_style=:confidence_bands
     )
 
-    # Save VegaLite plot as PNG
-    save(vega_png_full_path, vega_plot)
-    @debug "VegaLite PNG visualization saved"
-
     # Save VegaLite spec as JSON
     save(vega_spec_full_path, vega_plot)
     @debug "VegaLite spec saved"
@@ -409,7 +403,7 @@ function handle_job(
     rs_output_name = "result_set"
     @debug "Moving result set to upload directory" target_name = rs_output_name
     move_start = time()
-    # TODO: ADRIA should be able to specify this
+    # TODO: ADRIA should be able to specify this when first created
     move_result_set_to_determined_location(;
         target_location=upload_directory_path,
         folder_name=rs_output_name
@@ -452,8 +446,8 @@ function handle_job(
     return AdriaModelRunOutput(
         # result set
         rs_output_name,
-        # figure
-        vega_output_name_png
+        # figure (.vegalite)
+        vega_output_name_spec
     )
 end
 
