@@ -345,92 +345,104 @@ function initialize_default_metrics!()
     # Clear existing metrics
     empty!(METRIC_REGISTRY)
 
-    # Based on the metrics module, these are the available public metrics (in priority order):
-
-    # 1. Relative Cover (existing - highest priority)
+    # 1. Relative Cover
     register_metric!(
         "relative_cover",
         "Relative Coral Cover Over Time",
         "Relative Cover",
-        metric_to_function(ADRIA.metrics.relative_cover),
+        metric_to_function(ADRIA.metrics.scenario_relative_cover),
         "Shows the relative coral cover across scenarios over time"
     )
 
-    # 2. Total Absolute Cover (highest priority)
+    ## # 2. Total Absolute Cover
     register_metric!(
         "total_absolute_cover",
         "Total Absolute Coral Cover Over Time",
         "Total Cover (m²)",
-        metric_to_function(ADRIA.metrics.total_absolute_cover),
+        metric_to_function(ADRIA.metrics.scenario_total_cover),
         "Shows the absolute total coral cover across scenarios"
     )
 
-    # 3. Relative Shelter Volume (high priority)
+    ## # 3. Relative Shelter Volume
     register_metric!(
         "relative_shelter_volume",
         "Relative Shelter Volume Over Time",
         "Relative Shelter Volume",
-        metric_to_function(ADRIA.metrics.relative_shelter_volume),
+        metric_to_function(ADRIA.metrics.scenario_rsv),
         "Shows the shelter volume relative to theoretical maximum"
     )
 
-    # 4. Absolute Shelter Volume (high priority)
+    ## # 4. Absolute Shelter Volume
     register_metric!(
         "absolute_shelter_volume",
         "Absolute Shelter Volume Over Time",
         "Shelter Volume (m³)",
-        metric_to_function(ADRIA.metrics.absolute_shelter_volume),
+        metric_to_function(ADRIA.metrics.scenario_asv),
         "Shows the total shelter volume provided by corals"
     )
 
-    # 5. Relative Juveniles (high priority)
+    ## # 5. Relative Juveniles
     register_metric!(
         "relative_juveniles",
         "Relative Juvenile Population Over Time",
         "Relative Juveniles",
-        metric_to_function(ADRIA.metrics.relative_juveniles),
+        metric_to_function(ADRIA.metrics.scenario_relative_juveniles),
         "Shows the relative juvenile coral population across scenarios"
     )
 
-    # 6. Absolute Juveniles (high priority)
+    ## # 6. Absolute Juveniles
     register_metric!(
         "absolute_juveniles",
         "Absolute Juvenile Population Over Time",
         "Juvenile Cover (m²)",
-        metric_to_function(ADRIA.metrics.absolute_juveniles),
+        metric_to_function(ADRIA.metrics.scenario_absolute_juveniles),
         "Shows the absolute juvenile coral cover across scenarios"
     )
 
-    # 7. Coral Evenness (high priority)
+    ## # 7. Coral Evenness
     register_metric!(
         "coral_evenness",
         "Coral Evenness Over Time",
         "Evenness Index",
-        metric_to_function(ADRIA.metrics.coral_evenness),
+        metric_to_function(ADRIA.metrics.scenario_evenness),
         "Shows the evenness of coral species distribution (Simpson's diversity)"
     )
 
-    # 8. Relative Taxa Cover (high priority)
-    register_metric!(
-        "relative_taxa_cover",
-        "Relative Taxa Cover Over Time",
-        "Relative Cover by Taxa",
-        metric_to_function(ADRIA.metrics.relative_taxa_cover),
-        "Shows coral cover grouped by functional taxa"
-    )
-
-    # 9. Juvenile Indicator (medium priority)
+    ## # 8. Juvenile Indicator
     register_metric!(
         "juvenile_indicator",
         "Juvenile Density Indicator Over Time",
         "Density Indicator",
-        metric_to_function(ADRIA.metrics.juvenile_indicator),
+        metric_to_function(ADRIA.metrics.scenario_juvenile_indicator),
         "Shows juvenile density relative to theoretical maximum (0-1 scale)"
     )
 
-    # Additional metrics can be conditionally added if they exist in future ADRIA versions
-    # Note: Reef indices (Condition, Tourism, Fisheries) would need to be checked
-    # if they become available in the scenario-level metrics
+    ## 9. Reef Condition Index
+    register_metric!(
+        "condition_index",
+        "Reef Condition Index",
+        "Condition Index",
+        metric_to_function(ADRIA.metrics.scenario_rci),
+        "Reef condition index"
+    )
+
+    ## 10. Reef Tourism Index
+    register_metric!(
+        "tourism_index",
+        "Reef Tourism Index",
+        "Tourism Index",
+        metric_to_function(ADRIA.metrics.scenario_rti),
+        "Reef tourism index"
+    )
+
+    ## 11. Reef Fisheries Index
+    register_metric!(
+        "fisheries_index",
+        "Reef Fisheries Index",
+        "Fisheries Index",
+        metric_to_function(ADRIA.metrics.scenario_rfi),
+        "Reef fisheries index"
+    )
 
     @info "Initialized $(length(METRIC_REGISTRY)) default metric functions from ADRIA.metrics"
 end
