@@ -262,13 +262,15 @@ struct AdriaModelRunInput <: AbstractJobInput
 end
 
 """
-Output payload for ADRIA_MODEL_RUN job
+Output payload for ADRIA_MODEL_RUN job - Updated to include multiple visualizations
 """
 struct AdriaModelRunOutput <: AbstractJobOutput
     # Relative S3 storage location of result set
     output_result_set_path::String
-    # Relative S3 storage location of figure (vegalite spec)
-    output_figure_path::String
+    # Dictionary mapping chart titles to their S3 file paths (JSON serializable)
+    available_charts::Dict{String,String}
+    # Metadata about generated charts
+    chart_metadata::Dict{String,Dict{String,Any}}
 end
 
 """
@@ -281,7 +283,7 @@ struct AdriaModelRunHandler <: AbstractJobHandler end
 # ========================
 
 """
-Process an ADRIA_MODEL_RUN job
+Process an ADRIA_MODEL_RUN job - Updated version with multiple visualizations
 """
 function handle_job(
     ::AdriaModelRunHandler,
@@ -360,42 +362,14 @@ function handle_job(
         simulation_time; digits=2
     )
 
-    # Generate the relative cover metric
-    @debug "Generating relative cover metric from result set"
-    metric_start = time()
-    relative_cover = ADRIA.metrics.scenario_relative_cover(result)
-    metric_time = time() - metric_start
-    @debug "Relative cover metric generated" processing_time_seconds = round(
-        metric_time; digits=2
-    )
-
-    # Generate output plots and save to disk
-    @info "Building plots of relative coral cover"
-    # NOTE: file extension -> compile to spec (including data embedded)
-    vega_output_name_spec = "relative_cover_vega_spec.vegalite"
-    vega_spec_full_path = joinpath(upload_directory_path, vega_output_name_spec)
-
-    @debug "Generating visualizations" vega_spec_path =
-        vega_spec_full_path
-
+    # Generate ALL registered visualizations
+    @info "Generating all registered visualizations"
     viz_start = time()
-
-    # Generate new VegaLite plot
-    vega_plot = plot_adria_scenarios(
-        scenarios,
-        result,
-        relative_cover;
-        title="Relative Coral Cover Over Time",
-        y_label="Relative Cover",
-        plot_style=:confidence_bands
+    charts_dict, metadata_dict = generate_all_visualizations(
+        scenarios, result, upload_directory_path
     )
-
-    # Save VegaLite spec as JSON
-    save(vega_spec_full_path, vega_plot)
-    @debug "VegaLite spec saved"
-
     viz_time = time() - viz_start
-    @debug "All visualizations saved successfully" save_time_seconds = round(
+    @info "All visualizations generated successfully" total_charts = length(charts_dict) generation_time_seconds = round(
         viz_time; digits=2
     )
 
@@ -403,7 +377,6 @@ function handle_job(
     rs_output_name = "result_set"
     @debug "Moving result set to upload directory" target_name = rs_output_name
     move_start = time()
-    # TODO: ADRIA should be able to specify this when first created
     move_result_set_to_determined_location(;
         target_location=upload_directory_path,
         folder_name=rs_output_name
@@ -439,15 +412,15 @@ function handle_job(
     end
 
     execution_time = time() - start_time
+    total_files = length(charts_dict) + 1  # charts + result_set
     @info "ADRIA model run completed successfully" total_time_seconds = round(
         execution_time; digits=2
-    ) files_generated = 4  # result_set + figure.png + vega.png + vega.vegalite
+    ) files_generated = total_files charts_generated = length(charts_dict)
 
     return AdriaModelRunOutput(
-        # result set
         rs_output_name,
-        # figure (.vegalite)
-        vega_output_name_spec
+        charts_dict,
+        metadata_dict
     )
 end
 
@@ -457,10 +430,10 @@ end
 # ====
 #
 
-#
-# Register the job types when the module loads
-#
 function __init__()
+    # Initialize default metrics first
+    initialize_default_metrics!()
+
     # Register the ADRIA_MODEL_RUN job handler
     register_job_handler!(
         ADRIA_MODEL_RUN,
@@ -469,5 +442,6 @@ function __init__()
         AdriaModelRunOutput
     )
 
-    @debug "ADRIA Jobs module initialized with handlers"
+    @info "ADRIA Jobs module initialized" registered_metrics = length(METRIC_REGISTRY) handlers_registered =
+        1
 end

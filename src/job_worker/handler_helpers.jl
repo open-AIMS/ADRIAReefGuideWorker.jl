@@ -271,3 +271,232 @@ function rmdir(dir_path::String; verbose::Bool=true)
         return false
     end
 end
+
+# =====================================================
+# Metric Function Registry for Expandable Visualizations
+# =====================================================
+
+"""
+Represents a metric function that can be applied to ADRIA result sets
+"""
+struct MetricFunction
+    name::String
+    title::String
+    y_label::String
+    func::Function
+    description::String
+end
+
+"""
+Registry of available metric functions for visualization
+"""
+const METRIC_REGISTRY = Vector{MetricFunction}()
+
+"""
+Register a new metric function for visualization
+"""
+function register_metric!(
+    name::String,
+    title::String,
+    y_label::String,
+    func::Function,
+    description::String=""
+)
+    metric = MetricFunction(name, title, y_label, func, description)
+    push!(METRIC_REGISTRY, metric)
+    @debug "Registered metric function: $name"
+    return metric
+end
+
+"""
+Get all registered metric functions
+"""
+function get_registered_metrics()
+    return copy(METRIC_REGISTRY)
+end
+
+"""
+Find a metric function by name
+"""
+function find_metric(name::String)
+    for metric in METRIC_REGISTRY
+        if metric.name == name
+            return metric
+        end
+    end
+    return nothing
+end
+
+# =====================================================
+# Default Metric Functions
+# =====================================================
+
+"""
+Convert ADRIA metric objects to callable functions
+"""
+function metric_to_function(metric_obj)::Function
+    return (result_set) -> metric_obj(result_set)
+end
+
+"""
+Initialize the default set of metric functions using only available ADRIA metrics
+"""
+function initialize_default_metrics!()
+    # Clear existing metrics
+    empty!(METRIC_REGISTRY)
+
+    # Based on the metrics module, these are the available public metrics (in priority order):
+
+    # 1. Relative Cover (existing - highest priority)
+    register_metric!(
+        "relative_cover",
+        "Relative Coral Cover Over Time",
+        "Relative Cover",
+        metric_to_function(ADRIA.metrics.relative_cover),
+        "Shows the relative coral cover across scenarios over time"
+    )
+
+    # 2. Total Absolute Cover (highest priority)
+    register_metric!(
+        "total_absolute_cover",
+        "Total Absolute Coral Cover Over Time",
+        "Total Cover (m²)",
+        metric_to_function(ADRIA.metrics.total_absolute_cover),
+        "Shows the absolute total coral cover across scenarios"
+    )
+
+    # 3. Relative Shelter Volume (high priority)
+    register_metric!(
+        "relative_shelter_volume",
+        "Relative Shelter Volume Over Time",
+        "Relative Shelter Volume",
+        metric_to_function(ADRIA.metrics.relative_shelter_volume),
+        "Shows the shelter volume relative to theoretical maximum"
+    )
+
+    # 4. Absolute Shelter Volume (high priority)
+    register_metric!(
+        "absolute_shelter_volume",
+        "Absolute Shelter Volume Over Time",
+        "Shelter Volume (m³)",
+        metric_to_function(ADRIA.metrics.absolute_shelter_volume),
+        "Shows the total shelter volume provided by corals"
+    )
+
+    # 5. Relative Juveniles (high priority)
+    register_metric!(
+        "relative_juveniles",
+        "Relative Juvenile Population Over Time",
+        "Relative Juveniles",
+        metric_to_function(ADRIA.metrics.relative_juveniles),
+        "Shows the relative juvenile coral population across scenarios"
+    )
+
+    # 6. Absolute Juveniles (high priority)
+    register_metric!(
+        "absolute_juveniles",
+        "Absolute Juvenile Population Over Time",
+        "Juvenile Cover (m²)",
+        metric_to_function(ADRIA.metrics.absolute_juveniles),
+        "Shows the absolute juvenile coral cover across scenarios"
+    )
+
+    # 7. Coral Evenness (high priority)
+    register_metric!(
+        "coral_evenness",
+        "Coral Evenness Over Time",
+        "Evenness Index",
+        metric_to_function(ADRIA.metrics.coral_evenness),
+        "Shows the evenness of coral species distribution (Simpson's diversity)"
+    )
+
+    # 8. Relative Taxa Cover (high priority)
+    register_metric!(
+        "relative_taxa_cover",
+        "Relative Taxa Cover Over Time",
+        "Relative Cover by Taxa",
+        metric_to_function(ADRIA.metrics.relative_taxa_cover),
+        "Shows coral cover grouped by functional taxa"
+    )
+
+    # 9. Juvenile Indicator (medium priority)
+    register_metric!(
+        "juvenile_indicator",
+        "Juvenile Density Indicator Over Time",
+        "Density Indicator",
+        metric_to_function(ADRIA.metrics.juvenile_indicator),
+        "Shows juvenile density relative to theoretical maximum (0-1 scale)"
+    )
+
+    # Additional metrics can be conditionally added if they exist in future ADRIA versions
+    # Note: Reef indices (Condition, Tourism, Fisheries) would need to be checked
+    # if they become available in the scenario-level metrics
+
+    @info "Initialized $(length(METRIC_REGISTRY)) default metric functions from ADRIA.metrics"
+end
+
+"""
+Generate all registered visualizations for the result set
+"""
+function generate_all_visualizations(
+    scenarios_df::DataFrame,
+    result_set::ADRIA.ResultSet,
+    upload_directory_path::String
+)
+    charts_dict = Dict{String,String}()
+    metadata_dict = Dict{String,Dict{String,Any}}()
+
+    @info "Generating $(length(METRIC_REGISTRY)) visualizations"
+
+    for metric in METRIC_REGISTRY
+        try
+            @debug "Generating visualization: $(metric.name)"
+            viz_start = time()
+
+            # Compute the metric
+            metric_data = metric.func(result_set)
+
+            # Generate the plot
+            vega_plot = plot_adria_scenarios(
+                scenarios_df,
+                result_set,
+                metric_data;
+                title=metric.title,
+                y_label=metric.y_label,
+                plot_style=:confidence_bands
+            )
+
+            # Create filename
+            filename = "$(metric.name)_vega_spec.vegalite"
+            filepath = joinpath(upload_directory_path, filename)
+
+            # Save VegaLite spec
+            save(filepath, vega_plot)
+
+            # Add to charts dictionary
+            charts_dict[metric.title] = filename
+
+            # Add metadata
+            metadata_dict[metric.title] = Dict{String,Any}(
+                "metric_name" => metric.name,
+                "filename" => filename,
+                "y_label" => metric.y_label,
+                "description" => metric.description,
+                "generation_time_seconds" => round(time() - viz_start; digits=3)
+            )
+
+            @debug "Successfully generated: $(metric.name)" filename = filename time_seconds = round(
+                time() - viz_start; digits=3
+            )
+
+        catch e
+            @error "Failed to generate visualization: $(metric.name)" exception = (
+                e, catch_backtrace()
+            )
+            # Continue with other visualizations even if one fails
+        end
+    end
+
+    @info "Generated $(length(charts_dict)) visualizations successfully"
+    return charts_dict, metadata_dict
+end
