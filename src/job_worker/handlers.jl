@@ -317,7 +317,14 @@ function handle_job(
     # Load the domain
     @info "Loading domain data from: $data_pkg_path"
     domain_load_start = time()
-    domain = ADRIA.load_domain(data_pkg_path, rcp_scenario)
+
+    if input.data_package == "MOORE"
+        domain = ADRIA.load_domain(data_pkg_path, rcp_scenario)
+    elseif input.data_package == "GBR"
+        domain = ADRIA.load_domain(RMEDomain, data_pkg_path, rcp_scenario)
+    else
+        throw("Invalid data package input: $(input.data_package)")
+    end
     domain_load_time = time() - domain_load_start
     @debug "Domain loaded successfully" load_time_seconds = round(
         domain_load_time; digits=2

@@ -167,7 +167,7 @@ function load_config_from_env()::WorkerConfig
 
     # CUSTOM ADDED
     moore_data_package_path = get_env("MOORE_DATA_PACKAGE_PATH")
-    if isempty(data_package_path)
+    if isempty(moore_data_package_path)
         throw(
             ConfigValidationError(
                 "MOORE_DATA_PACKAGE_PATH", "MOORE_DATA_PACKAGE_PATH cannot be undefined"
@@ -176,7 +176,7 @@ function load_config_from_env()::WorkerConfig
     end
 
     gbr_data_package_path = get_env("GBR_DATA_PACKAGE_PATH")
-    if isempty(data_package_path)
+    if isempty(gbr_data_package_path)
         throw(
             ConfigValidationError(
                 "GBR_DATA_PACKAGE_PATH", "GBR_DATA_PACKAGE_PATH cannot be undefined"
