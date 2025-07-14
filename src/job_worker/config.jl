@@ -24,7 +24,10 @@ struct WorkerConfig
     s3_endpoint::OptionalValue{String}
 
     # CUSTOM added config
-    data_package_path::String
+    # MOORE data package
+    moore_data_package_path::String
+    # GBR data package
+    gbr_data_package_path::String
     data_scratch_space::String
 
     # Kwarg constructor
@@ -40,7 +43,8 @@ struct WorkerConfig
         idle_timeout_ms::Int64=5 * 60 * 1000,
         s3_endpoint::OptionalValue{String}=nothing,
         # CUSTOM ADDED
-        data_package_path::String,
+        moore_data_package_path::String,
+        gbr_data_package_path::String,
         data_scratch_space::String
     )
         return new(
@@ -52,7 +56,8 @@ struct WorkerConfig
             idle_timeout_ms,
             aws_region,
             s3_endpoint,
-            data_package_path,
+            moore_data_package_path,
+            gbr_data_package_path,
             data_scratch_space
         )
     end
@@ -161,14 +166,24 @@ function load_config_from_env()::WorkerConfig
     )
 
     # CUSTOM ADDED
-    data_package_path = get_env("DATA_PACKAGE_PATH")
-    if isempty(data_package_path)
+    moore_data_package_path = get_env("MOORE_DATA_PACKAGE_PATH")
+    if isempty(moore_data_package_path)
         throw(
             ConfigValidationError(
-                "DATA_PACKAGE_PATH", "DATA_PACKAGE_PATH cannot be undefined"
+                "MOORE_DATA_PACKAGE_PATH", "MOORE_DATA_PACKAGE_PATH cannot be undefined"
             )
         )
     end
+
+    gbr_data_package_path = get_env("GBR_DATA_PACKAGE_PATH")
+    if isempty(gbr_data_package_path)
+        throw(
+            ConfigValidationError(
+                "GBR_DATA_PACKAGE_PATH", "GBR_DATA_PACKAGE_PATH cannot be undefined"
+            )
+        )
+    end
+
     data_scratch_space = get_env("DATA_SCRATCH_SPACE")
     if isempty(data_scratch_space)
         throw(
@@ -188,7 +203,8 @@ function load_config_from_env()::WorkerConfig
         aws_region,
         s3_endpoint,
         # CUSTOM ADDED
-        data_package_path,
+        moore_data_package_path,
+        gbr_data_package_path,
         data_scratch_space
     )
 end

@@ -256,6 +256,8 @@ end
 Input payload for ADRIA_MODEL_RUN job
 """
 struct AdriaModelRunInput <: AbstractJobInput
+    # Needs to be one of the available data packages (currently MOORE or GBR)
+    data_package::String
     num_scenarios::Int64
     model_params::Vector{ModelParam}
     rcp_scenario::OptionalValue{String}  # defaults to "45" if not provided
@@ -302,13 +304,27 @@ function handle_job(
     )
 
     # Define the domain data path
-    data_pkg_path = context.config.data_package_path
+    if input.data_package == "MOORE"
+        data_pkg_path = context.config.moore_data_package_path
+    elseif input.data_package == "GBR"
+        data_pkg_path = context.config.gbr_data_package_path
+    else
+        throw("Invalid data package input: $(input.data_package)")
+    end
+
     @debug "Data package path configured" path = data_pkg_path
 
     # Load the domain
     @info "Loading domain data from: $data_pkg_path"
     domain_load_start = time()
-    domain = ADRIA.load_domain(data_pkg_path, rcp_scenario)
+
+    if input.data_package == "MOORE"
+        domain = ADRIA.load_domain(data_pkg_path, rcp_scenario)
+    elseif input.data_package == "GBR"
+        domain = ADRIA.load_domain(RMEDomain, data_pkg_path, rcp_scenario)
+    else
+        throw("Invalid data package input: $(input.data_package)")
+    end
     domain_load_time = time() - domain_load_start
     @debug "Domain loaded successfully" load_time_seconds = round(
         domain_load_time; digits=2
