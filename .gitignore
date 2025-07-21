@@ -19,7 +19,9 @@ docs/site/
 
 .vscode/
 
-sandbox/
+sandbox/*
+!sandbox/init.sh
+!sandbox/start.sh
 
 data
 .env
