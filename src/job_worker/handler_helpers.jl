@@ -417,32 +417,34 @@ function initialize_default_metrics!()
         "Shows juvenile density relative to theoretical maximum (0-1 scale)"
     )
 
+    # Various indexes disabled for now, uncomment if needed
+
     ## 9. Reef Condition Index
-    register_metric!(
-        "condition_index",
-        "Reef Condition Index",
-        "Condition Index",
-        metric_to_function(ADRIA.metrics.scenario_rci),
-        "Reef condition index"
-    )
+    # register_metric!(
+    #     "condition_index",
+    #     "Reef Condition Index",
+    #     "Condition Index",
+    #     metric_to_function(ADRIA.metrics.scenario_rci),
+    #     "Reef condition index"
+    # )
 
     ## 10. Reef Tourism Index
-    register_metric!(
-        "tourism_index",
-        "Reef Tourism Index",
-        "Tourism Index",
-        metric_to_function(ADRIA.metrics.scenario_rti),
-        "Reef tourism index"
-    )
+    # register_metric!(
+    #     "tourism_index",
+    #     "Reef Tourism Index",
+    #     "Tourism Index",
+    #     metric_to_function(ADRIA.metrics.scenario_rti),
+    #     "Reef tourism index"
+    # )
 
     ## 11. Reef Fisheries Index
-    register_metric!(
-        "fisheries_index",
-        "Reef Fisheries Index",
-        "Fisheries Index",
-        metric_to_function(ADRIA.metrics.scenario_rfi),
-        "Reef fisheries index"
-    )
+    # register_metric!(
+    #     "fisheries_index",
+    #     "Reef Fisheries Index",
+    #     "Fisheries Index",
+    #     metric_to_function(ADRIA.metrics.scenario_rfi),
+    #     "Reef fisheries index"
+    # )
 
     @info "Initialized $(length(METRIC_REGISTRY)) default metric functions from ADRIA.metrics"
 end
