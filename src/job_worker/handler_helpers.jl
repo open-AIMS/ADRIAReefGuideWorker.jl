@@ -514,3 +514,12 @@ function generate_all_visualizations(
     @info "Generated $(length(charts_dict)) visualizations successfully"
     return charts_dict, metadata_dict
 end
+
+function build_spatial_metrics(
+    result_set::ADRIA.ResultSet
+)
+    file_name = "spatial_metrics.json"
+    # This returns 
+    relative_cover = ADRIA.metrics.relative_cover(result_set)
+    return file_name
+end
