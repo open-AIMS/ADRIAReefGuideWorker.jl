@@ -5,78 +5,62 @@ using ArchGDAL
 using GeoDataFrames
 using Parquet
 using Logging
+using Statistics
 
 """
-    extract_location_scenario_data(result_set, scenarios_df)
+    extract_location_scenario_data(result_set, scenarios_df; aggregations=[:mean])
 
-Efficiently extract timestep, scenario type, relative cover, and location data from ADRIA results.
-Uses vectorized operations and pre-allocated arrays for better performance.
+Efficiently extract and aggregate timestep, scenario type, and relative cover data from ADRIA results.
+Aggregates by scenario_type instead of individual scenarios.
 
 # Arguments
 - `result_set`: ADRIA ResultSet containing the relative_cover metric
 - `scenarios_df`: DataFrame containing scenario specifications
+- `aggregations`: Vector of aggregation functions to apply (default: [:mean, :min, :max])
 
 # Returns
-DataFrame with columns: timestep, scenario_type, relative_cover, location_id, scenario_id
+DataFrame with columns: timestep, scenario_type, relative_cover_mean, relative_cover_min, relative_cover_max, location_id
 """
-function extract_location_scenario_data(result_set, scenarios_df)
+function extract_location_scenario_data(
+    result_set, scenarios_df
+)
     # Get the relative cover data (should be 3D: timesteps × locations × scenarios)
     relative_cover_data = ADRIA.relative_cover(result_set)
+    # Get the scenario groupings
+    scenario_groups = ADRIA.analysis.scenario_types(scenarios_df)
 
-    # Extract dimensions
-    timesteps = collect(relative_cover_data.timesteps)
-    locations = collect(relative_cover_data.locations)
-    scenario_indices = collect(relative_cover_data.scenarios)
-
-    n_timesteps = length(timesteps)
-    n_locations = length(locations)
-    n_scenarios = length(scenario_indices)
-    n_rows = n_timesteps * n_locations * n_scenarios
-
-    @debug "Creating $(n_rows) rows from $(n_timesteps) timesteps × $(n_locations) locations × $(n_scenarios) scenarios"
-
-    # Get ADRIA scenario type groupings
-    scen_groups = ADRIA.analysis.scenario_types(scenarios_df)
-
-    # Create scenario type mapping
-    scenario_type_map = Dict{Int,String}()
-    for (type_name, mask) in scen_groups
-        scenario_indices_for_type = findall(mask)
-        for idx in scenario_indices_for_type
-            scenario_type_map[idx] = string(type_name)
+    function scenario_id_to_type(scenario_id::Int)
+        if scenario_groups[:guided][scenario_id] == 1
+            return "guided"
+        elseif scenario_groups[:unguided][scenario_id] == 1
+            return "unguided"
+        elseif scenario_groups[:counterfactual][scenario_id] == 1
+            return "counterfactual"
         end
+        return "unknown"
     end
 
-    # Convert 3D array to 1D vector directly (much faster than nested loops)
-    @debug "Flattening 3D array to vector..."
-    relative_cover_flat = vec(Array(relative_cover_data))  # Convert to regular Array first, then flatten
+    # Map to a dataframe by stacking the relative cover data
+    df = DataFrame(stack(relative_cover_data))
 
-    # Pre-generate index vectors using broadcasting (very fast)
-    @debug "Generating index vectors..."
+    # Map the scenario ID in to the scenario type column
+    df.scenario_types = scenario_id_to_type.(df.scenarios)
 
-    # Create repeating patterns for each dimension
-    timestep_indices = repeat(1:n_timesteps; inner=1, outer=n_locations * n_scenarios)
-    location_indices = repeat(1:n_locations; inner=n_timesteps, outer=n_scenarios)
-    scenario_indices_rep = repeat(1:n_scenarios; inner=n_timesteps * n_locations, outer=1)
-
-    # Map indices to actual values
-    timestep_vec = [timesteps[i] for i in timestep_indices]
-    location_id_vec = [locations[i] for i in location_indices]
-    scenario_id_vec = [scenario_indices[i] for i in scenario_indices_rep]
-
-    # Map scenario IDs to types
-    @debug "Mapping scenario types..."
-    scenario_type_vec = [get(scenario_type_map, sid, "unknown") for sid in scenario_id_vec]
-
-    # Create DataFrame (much faster than row-by-row)
-    @debug "Creating DataFrame..."
-    return DataFrame(;
-        timestep=timestep_vec,
-        scenario_type=scenario_type_vec,
-        relative_cover=relative_cover_flat,
-        location_id=location_id_vec,
-        scenario_id=scenario_id_vec
+    # Now groupby the scenario_type and provide multiple aggregation columns
+    # TODO consider other aggregations of interest
+    aggregated = combine(groupby(df, [:scenario_types, :timesteps, :locations]),
+        :value => mean => :relative_cover_mean,
+        :value => minimum => :relative_cover_min,
+        :value => maximum => :relative_cover_max
     )
+
+    # update types due to poor inference from the relative cover metric
+    transform!(aggregated,
+        :timesteps => ByRow(Int) => :timesteps,
+        :locations => ByRow(String) => :locations
+    )
+
+    return aggregated
 end
 
 """

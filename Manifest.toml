@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "e9643807635223bd51247c5a33933d07798dcc9d"
+project_hash = "75d2007b9fbeff4ae0bbc415d8f8c58da0ff17d2"
 
 [[deps.ADRIA]]
 deps = ["ArchGDAL", "Bootstrap", "CSV", "Clustering", "Combinatorics", "CoralBlox", "CpuId", "DataEnvelopmentAnalysis", "DataFrames", "DataStructures", "Dates", "DimensionalData", "Distances", "Distributed", "Distributions", "FLoops", "FileIO", "GDAL_jll", "GeoDataFrames", "GeoFormatTypes", "GeoInterface", "Glob", "Graphs", "HypothesisTests", "ImageIO", "InteractiveUtils", "Interpolations", "JMcDM", "JSON", "JuliennedArrays", "LERC_jll", "LinearAlgebra", "Logging", "MAT", "MLJ", "ModelParameters", "NetCDF", "OnlineStats", "OrderedCollections", "Pkg", "PkgVersion", "PrecompileTools", "Printf", "ProgressMeter", "QuasiMonteCarlo", "Random", "Reexport", "RelocatableFolders", "SIRUS", "Setfield", "SimpleWeightedGraphs", "SparseArrays", "SpecialFunctions", "StableRNGs", "StaticArrays", "Statistics", "StatsBase", "StatsFuns", "TOML", "YAXArrays", "Zarr"]
