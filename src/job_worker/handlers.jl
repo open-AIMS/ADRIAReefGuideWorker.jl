@@ -267,6 +267,10 @@ end
 Output payload for ADRIA_MODEL_RUN job - Updated to include multiple visualizations
 """
 struct AdriaModelRunOutput <: AbstractJobOutput
+    # Path to spatial metrics file
+    spatial_metrics_path::String
+    # Path to the reef geometry GeoJSON file
+    reef_boundaries_path::String
     # Relative S3 storage location of result set
     output_result_set_path::String
     # Dictionary mapping chart titles to their S3 file paths (JSON serializable)
@@ -389,6 +393,25 @@ function handle_job(
         viz_time; digits=2
     )
 
+    # Mode for loading spatial data
+    mode::SpatialDataMode = input.data_package == "MOORE" ? DatapackageMode() : RMEMode()
+
+    # Generate the spatial metrics needed
+    @debug "Generating spatial metrics"
+    time_start = time()
+    spatial_metrics_filename = "spatial_metrics.parquet"
+    reef_geometry_filename = "reef_geometry.geojson"
+    export_adria_web_data(
+        result,
+        scenarios,
+        data_pkg_path;
+        mode=mode,
+        geojson_path=joinpath(upload_directory_path, reef_geometry_filename),
+        parquet_path=joinpath(upload_directory_path, spatial_metrics_filename)
+    )
+    time_taken = round(time() - time_start; digits=2)
+    @debug "Completed generating spatial metrics" time_taken
+
     # Move the output result set into a predictable location
     rs_output_name = "result_set"
     @debug "Moving result set to upload directory" target_name = rs_output_name
@@ -434,6 +457,8 @@ function handle_job(
     ) files_generated = total_files charts_generated = length(charts_dict)
 
     return AdriaModelRunOutput(
+        spatial_metrics_filename,
+        reef_geometry_filename,
         rs_output_name,
         charts_dict,
         metadata_dict

@@ -6,6 +6,9 @@ using Base.Threads
 # Utilities and helpers for assessments
 include("utility/utility.jl")
 
+# Processing helper functions
+include("processing/processing.jl")
+
 # Visualisation utilities
 include("visualisations/visualisations.jl")
 
