@@ -45,16 +45,16 @@ tidy_data = extract_location_scenario_data(result_set, scenarios_df)
 function extract_location_scenario_data(result_set, scenarios_df)
     # Extract 3D relative cover data (timesteps × locations × scenarios)
     relative_cover_data = ADRIA.relative_cover(result_set)
-    
+
     # Get scenario type groupings from ADRIA analysis
     scenario_groups = ADRIA.analysis.scenario_types(scenarios_df)
 
     """
     Map scenario ID to its corresponding scenario type.
-    
+
     # Arguments
     - `scenario_id::Int`: Numeric scenario identifier
-    
+
     # Returns
     String indicating scenario type: "guided", "unguided", "counterfactual", or "unknown"
     """
@@ -122,7 +122,9 @@ spatial_data = load_spatial_data_from_datapackage("../data/Moore_2025-01-17_v070
 spatial_data = load_spatial_data_from_datapackage("../rme_data/", RME_MODE)
 ```
 """
-function load_spatial_data_from_datapackage(datapackage_path, mode::SpatialDataMode=DATAPACKAGE_MODE)
+function load_spatial_data_from_datapackage(
+    datapackage_path, mode::SpatialDataMode=DATAPACKAGE_MODE
+)
     return load_spatial_data_from_datapackage(datapackage_path, mode)
 end
 
@@ -147,9 +149,11 @@ function load_spatial_data_from_datapackage(datapackage_path, ::DatapackageMode)
         json_path = datapackage_path
         base_dir = dirname(datapackage_path)
     else
-        throw(ArgumentError(
-            "datapackage_path must be either a directory containing datapackage.json or the path to datapackage.json itself"
-        ))
+        throw(
+            ArgumentError(
+                "datapackage_path must be either a directory containing datapackage.json or the path to datapackage.json itself"
+            )
+        )
     end
 
     # Verify datapackage.json exists
@@ -216,11 +220,15 @@ Expects geopackage at: `{base_path}/data_files/region/reefmod_gbr.gpkg`
 function load_spatial_data_from_datapackage(base_path, ::RMEMode)
     # Construct the fixed RME path structure
     geopackage_path = joinpath(base_path, "data_files", "region", "reefmod_gbr.gpkg")
-    
+
     @debug "RME Mode: Looking for spatial data at: $geopackage_path"
-    
+
     if !isfile(geopackage_path)
-        throw(ArgumentError("RME geopackage file not found at expected path: $geopackage_path"))
+        throw(
+            ArgumentError(
+                "RME geopackage file not found at expected path: $geopackage_path"
+            )
+        )
     end
 
     # Load the geopackage using GeoDataFrames
@@ -244,12 +252,12 @@ Automatically detects the appropriate location ID column and includes useful spa
 
 # Returns
 DataFrame with columns:
-- `location_id`: Location identifier (mapped from reef_siteid or site_id)
+- `location_id`: Location identifier (mapped from reef_siteid, site_id, or RME_UNIQUE_ID)
 - `geometry`: Spatial geometry for the location
 - Additional columns if present: `zone_type`, `area`, `depth`
 
 # Throws
-- `ArgumentError`: If neither 'reef_siteid' nor 'site_id' columns are found
+- `ArgumentError`: If none of the expected location ID columns are found
 
 # Example
 ```julia
@@ -260,6 +268,7 @@ function create_location_geometry_lookup(spatial_gdf)
     @debug "Available columns in spatial data: $(names(spatial_gdf))"
 
     # Auto-detect the location ID column using common naming patterns
+    # Order of preference: reef_siteid -> site_id -> RME_UNIQUE_ID
     location_id_col = nothing
     if "reef_siteid" in names(spatial_gdf)
         location_id_col = "reef_siteid"
@@ -267,28 +276,23 @@ function create_location_geometry_lookup(spatial_gdf)
     elseif "site_id" in names(spatial_gdf)
         location_id_col = "site_id"
         @debug "Using 'site_id' as location identifier"
+    elseif "RME_UNIQUE_ID" in names(spatial_gdf)
+        location_id_col = "RME_UNIQUE_ID"
+        @debug "Using 'RME_UNIQUE_ID' as location identifier"
     else
-        throw(ArgumentError(
-            "Could not find 'reef_siteid' or 'site_id' column. Available columns: $(join(names(spatial_gdf), ", "))"
-        ))
+        throw(
+            ArgumentError(
+                "Could not find location ID column. Expected one of: 'reef_siteid', 'site_id', 'RME_UNIQUE_ID'. Available columns: $(join(names(spatial_gdf), ", "))"
+            )
+        )
     end
 
     # Create the core lookup table with location_id and geometry
     lookup_df = DataFrames.select(spatial_gdf, location_id_col => :location_id, :geometry)
 
-    # Add commonly useful spatial attributes if they exist
-    potentially_useful_cols = ["zone_type", "area", "depth"]
-    for col in potentially_useful_cols
-        if col in names(spatial_gdf)
-            lookup_df[!, col] = spatial_gdf[!, col]
-            @debug "Added column: $col"
-        end
-    end
-
     @debug "Created lookup table with $(nrow(lookup_df)) locations"
     return lookup_df
 end
-
 """
     export_adria_web_data(result_set, scenarios_df, datapackage_path; 
                          mode=DATAPACKAGE_MODE,
@@ -352,7 +356,6 @@ function export_adria_web_data(result_set, scenarios_df, datapackage_path;
     mode::SpatialDataMode=DATAPACKAGE_MODE,
     geojson_path="spatial_data.geojson",
     parquet_path="relative_cover_data.parquet")
-    
     @info "Starting ADRIA web data export workflow"
     start_time = time()
 
@@ -362,21 +365,27 @@ function export_adria_web_data(result_set, scenarios_df, datapackage_path;
         step_start = time()
         tidy_data = extract_location_scenario_data(result_set, scenarios_df)
         step_duration = time() - step_start
-        @info "✓ Tidy data created in $(round(step_duration, digits=2)) seconds" nrows = nrow(tidy_data) ncols = ncol(tidy_data)
+        @info "✓ Tidy data created in $(round(step_duration, digits=2)) seconds" nrows = nrow(
+            tidy_data
+        ) ncols = ncol(tidy_data)
 
         # Step 2: Load spatial/geometry data using the specified mode
         @info "Loading spatial data using $(typeof(mode)) mode..."
         step_start = time()
         spatial_data = load_spatial_data_from_datapackage(datapackage_path, mode)
         step_duration = time() - step_start
-        @info "✓ Spatial data loaded in $(round(step_duration, digits=2)) seconds" nfeatures = nrow(spatial_data)
+        @info "✓ Spatial data loaded in $(round(step_duration, digits=2)) seconds" nfeatures = nrow(
+            spatial_data
+        )
 
         # Step 3: Create geometry lookup table for web visualization
         @info "Creating geometry lookup table..."
         step_start = time()
         geometry_lookup = create_location_geometry_lookup(spatial_data)
         step_duration = time() - step_start
-        @info "✓ Geometry lookup created in $(round(step_duration, digits=2)) seconds" nlookups = nrow(geometry_lookup)
+        @info "✓ Geometry lookup created in $(round(step_duration, digits=2)) seconds" nlookups = nrow(
+            geometry_lookup
+        )
 
         # Step 4: Export spatial data as GeoJSON for web mapping
         @info "Exporting spatial data to GeoJSON..."
@@ -385,7 +394,8 @@ function export_adria_web_data(result_set, scenarios_df, datapackage_path;
         GeoDataFrames.write(geojson_path, geometry_lookup)
         step_duration = time() - step_start
         spatial_size_mb = round(stat(geojson_path).size / 1024^2; digits=2)
-        @info "✓ Spatial data exported in $(round(step_duration, digits=2)) seconds" path = geojson_path size_mb = spatial_size_mb
+        @info "✓ Spatial data exported in $(round(step_duration, digits=2)) seconds" path =
+            geojson_path size_mb = spatial_size_mb
 
         # Step 5: Export aggregated data as Parquet for efficient web loading
         @info "Exporting data table to Parquet..."
@@ -394,11 +404,14 @@ function export_adria_web_data(result_set, scenarios_df, datapackage_path;
         Parquet.write_parquet(parquet_path, tidy_data)
         step_duration = time() - step_start
         data_size_mb = round(stat(parquet_path).size / 1024^2; digits=2)
-        @info "✓ Data table exported in $(round(step_duration, digits=2)) seconds" path = parquet_path size_mb = data_size_mb
+        @info "✓ Data table exported in $(round(step_duration, digits=2)) seconds" path =
+            parquet_path size_mb = data_size_mb
 
         # Workflow completion summary
         total_duration = time() - start_time
-        @info "✓ Export workflow complete" total_time_seconds = round(total_duration; digits=1) data_points = nrow(tidy_data) locations = length(unique(tidy_data.locations))
+        @info "✓ Export workflow complete" total_time_seconds = round(
+            total_duration; digits=1
+        ) data_points = nrow(tidy_data) locations = length(unique(tidy_data.locations))
 
         return Dict(
             "spatial" => geojson_path,
