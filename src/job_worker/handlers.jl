@@ -393,6 +393,9 @@ function handle_job(
         viz_time; digits=2
     )
 
+    # Mode for loading spatial data
+    mode::SpatialDataMode = input.data_package == "MOORE" ? DatapackageMode() : RMEMode()
+
     # Generate the spatial metrics needed
     @debug "Generating spatial metrics"
     time_start = time()
@@ -402,6 +405,7 @@ function handle_job(
         result,
         scenarios,
         data_pkg_path;
+        mode=mode,
         geojson_path=joinpath(upload_directory_path, reef_geometry_filename),
         parquet_path=joinpath(upload_directory_path, spatial_metrics_filename)
     )
