@@ -77,6 +77,10 @@ COPY Project.toml Manifest*.toml ./
 RUN julia --project=@app \
     -e 'using Pkg; Pkg.add(url="https://github.com/open-AIMS/ADRIA.jl", rev="main");'
 
+# SentryIntegration.jl fork is not on Julia registry, requiring this step
+RUN julia --project=@app \
+    -e 'using Pkg; Pkg.add(url="https://github.com/toolpath/SentryIntegration.jl", rev="main");'
+
 # Install the ADRIAReefGuideWorker source code and configure it as a development
 # package in the @app shared environment.
 # Should be v speedy if the .toml file is unchanged, because all the
