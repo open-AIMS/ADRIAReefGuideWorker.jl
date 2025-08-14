@@ -3,6 +3,9 @@ module ADRIAReefGuideWorker
 # System imports 
 using Base.Threads
 
+# Sentry monitoring 
+using SentryIntegration
+
 # Utilities and helpers for assessments
 include("utility/utility.jl")
 

@@ -29,6 +29,8 @@ struct WorkerConfig
     # GBR data package
     gbr_data_package_path::String
     data_scratch_space::String
+    "Sentry DSN URL (if monitoring enabled)"
+    sentry_dsn::OptionalValue{String}
 
     # Kwarg constructor
     function WorkerConfig(;
@@ -45,7 +47,8 @@ struct WorkerConfig
         # CUSTOM ADDED
         moore_data_package_path::String,
         gbr_data_package_path::String,
-        data_scratch_space::String
+        data_scratch_space::String,
+        sentry_dsn::OptionalValue{String}
     )
         return new(
             api_endpoint,
@@ -58,7 +61,8 @@ struct WorkerConfig
             s3_endpoint,
             moore_data_package_path,
             gbr_data_package_path,
-            data_scratch_space
+            data_scratch_space,
+            sentry_dsn
         )
     end
 end
@@ -107,7 +111,7 @@ end
 """
 Gets an environment variable with validation
 """
-function get_env(key::String, required::Bool=true)
+function get_env(key::String, required::Bool=true)::OptionalValue{String}
     value = Base.get(ENV, key, nothing)
     if isnothing(value) && required
         throw(ConfigValidationError(key, "Required environment variable not set"))
@@ -192,6 +196,10 @@ function load_config_from_env()::WorkerConfig
             )
         )
     end
+
+    # Get Sentry DSN
+    sentry_dsn = get_env("SENTRY_DSN", false)
+
     # Create and return the config object using keyword arguments
     return WorkerConfig(;
         api_endpoint,
@@ -205,7 +213,8 @@ function load_config_from_env()::WorkerConfig
         # CUSTOM ADDED
         moore_data_package_path,
         gbr_data_package_path,
-        data_scratch_space
+        data_scratch_space,
+        sentry_dsn
     )
 end
 
