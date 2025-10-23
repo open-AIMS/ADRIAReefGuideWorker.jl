@@ -25,22 +25,13 @@ function model_param_to_tuple(model_param::ModelParam)::Tuple
     end
 end
 
-function update_domain_with_param!(; domain, param::ModelParam)
-    # Set the distribution parametrisation defined by the user.
-    return ADRIA.set_factor_bounds!(
-        domain,
-        Symbol(param.param_name),
-        model_param_to_tuple(param)
-    )
-end
-
 function update_domain_with_params!(; domain, params::Vector{ModelParam})
-    for param::ModelParam in params
-        @debug "Setting parameter:" param.param_name param.lower param.upper
-        update_domain_with_param!(;
-            domain, param
-        )
-    end
+    all_params = Dict(
+        Symbol(param.param_name) => model_param_to_tuple(param)
+        for param in params
+    )
+
+    return ADRIA.set_factor_bounds!(domain; all_params...)
 end
 
 """
