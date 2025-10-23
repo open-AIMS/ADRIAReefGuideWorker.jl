@@ -355,7 +355,7 @@ function handle_job(
         scenario_gen_time; digits=2
     )
 
-    # Determine unique parent directory 
+    # Determine unique parent directory
     @debug "Creating unique working directory" base_dir = context.config.data_scratch_space
     unique_parent_folder = create_unique_folder(;
         base_dir=context.config.data_scratch_space

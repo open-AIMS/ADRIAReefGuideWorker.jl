@@ -43,7 +43,7 @@ function update_domain_with_params!(; domain, params::Vector{ModelParam})
     end
 end
 
-""" 
+"""
 
 Move ADRIA result set from output directory to target location with specified name.
 
@@ -156,7 +156,7 @@ Create a unique folder name within the specified base directory.
 
 # Arguments
 - `base_dir::String`: Base directory where the folder will be created
-- `prefix::String="folder"`: Prefix for the folder name (default: "folder")  
+- `prefix::String="folder"`: Prefix for the folder name (default: "folder")
 - `suffix::String=""`: Optional suffix for the folder name
 
 # Returns
@@ -193,7 +193,7 @@ function create_unique_folder(;
         counter += 1
     end
 
-    # create the path 
+    # create the path
     mkpath(full_path)
     return full_path
 end
@@ -519,7 +519,7 @@ function build_spatial_metrics(
     result_set::ADRIA.ResultSet
 )
     file_name = "spatial_metrics.json"
-    # This returns 
+    # This returns
     relative_cover = ADRIA.metrics.relative_cover(result_set)
     return file_name
 end

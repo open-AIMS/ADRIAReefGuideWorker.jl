@@ -293,10 +293,11 @@ function create_location_geometry_lookup(spatial_gdf)
     @debug "Created lookup table with $(nrow(lookup_df)) locations"
     return lookup_df
 end
+
 """
-    export_adria_web_data(result_set, scenarios_df, datapackage_path; 
+    export_adria_web_data(result_set, scenarios_df, datapackage_path;
                          mode=DATAPACKAGE_MODE,
-                         geojson_path="spatial_data.geojson", 
+                         geojson_path="spatial_data.geojson",
                          parquet_path="relative_cover_data.parquet")
 
 Complete workflow to process ADRIA results and export web-ready files for visualization.
@@ -328,8 +329,8 @@ Dict{String, String} with keys:
 ```julia
 # Using datapackage mode (default)
 files = export_adria_web_data(
-    result, 
-    scenarios, 
+    result,
+    scenarios,
     "../data/Moore_2025-01-17_v070_rc1",
     geojson_path="outputs/moore_spatial.geojson",
     parquet_path="outputs/moore_data.parquet"
@@ -337,8 +338,8 @@ files = export_adria_web_data(
 
 # Using RME mode
 files = export_adria_web_data(
-    result, 
-    scenarios, 
+    result,
+    scenarios,
     "../rme_data/",
     mode=RME_MODE,
     geojson_path="outputs/rme_spatial.geojson",
