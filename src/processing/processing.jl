@@ -59,15 +59,21 @@ function extract_location_scenario_data(result_set)
     String indicating scenario type: "guided", "unguided", "counterfactual", or "unknown"
     """
     function scenario_id_to_type(scenario_id::Int)
-        if scenario_groups[:guided][scenario_id] == 1
-            return "guided"
-        elseif scenario_groups[:unguided][scenario_id] == 1
-            return "unguided"
-        elseif scenario_groups[:counterfactual][scenario_id] == 1
-            return "counterfactual"
+        for stype in ADRIA.analysis.SCENARIO_TYPES
+            # Only handle relevant scenario types for provided result set
+            if stype in keys(scenario_groups)
+                if scenario_groups[stype][scenario_id] == 1
+                    return String(stype)
+                end
+            end
         end
+
         return "unknown"
     end
+
+    # TODO: Investigate use of ADRIA provided location-based metric
+    # Suspect it will be much more performant than interacting with a DataFrame
+    # ADRIA.metrics.loc_trajectory(mean, relative_cover_data)
 
     # Convert 3D array to long-format DataFrame using stack()
     df = DataFrame(stack(relative_cover_data))
