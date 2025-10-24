@@ -446,7 +446,7 @@ end
 Generate all registered visualizations for the result set
 """
 function generate_all_visualizations(
-    scenarios_df::DataFrame,
+    scenario_spec::DataFrame,
     result_set::ADRIA.ResultSet,
     upload_directory_path::String
 )
@@ -465,7 +465,7 @@ function generate_all_visualizations(
 
             # Generate the plot
             vega_plot = plot_adria_scenarios(
-                scenarios_df,
+                scenario_spec,
                 result_set,
                 metric_data;
                 title=metric.title,

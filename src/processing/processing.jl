@@ -17,14 +17,13 @@ const DATAPACKAGE_MODE = DatapackageMode()
 const RME_MODE = RMEMode()
 
 """
-    extract_location_scenario_data(result_set, scenarios_df)
+    extract_location_scenario_data(result_set)
 
 Efficiently extract and aggregate timestep, scenario type, and relative cover data from ADRIA results.
 Aggregates by scenario_type (guided, unguided, counterfactual) instead of individual scenarios.
 
 # Arguments
 - `result_set`: ADRIA ResultSet containing the relative_cover metric
-- `scenarios_df`: DataFrame containing scenario specifications with scenario type information
 
 # Returns
 DataFrame with columns:
@@ -39,15 +38,16 @@ DataFrame with columns:
 
 # Example
 ```julia
-tidy_data = extract_location_scenario_data(result_set, scenarios_df)
+tidy_data = extract_location_scenario_data(result_set)
 ```
 """
-function extract_location_scenario_data(result_set, scenarios_df)
+function extract_location_scenario_data(result_set)
+    # @here
     # Extract 3D relative cover data (timesteps × locations × scenarios)
     relative_cover_data = ADRIA.relative_cover(result_set)
 
     # Get scenario type groupings from ADRIA analysis
-    scenario_groups = ADRIA.analysis.scenario_types(scenarios_df)
+    scenario_groups = ADRIA.analysis.scenario_types(result_set.inputs)
 
     """
     Map scenario ID to its corresponding scenario type.
@@ -363,7 +363,7 @@ function export_adria_web_data(result_set, scenarios_df, datapackage_path;
         # Step 1: Convert ADRIA results to tidy format aggregated by scenario type
         @info "Converting to tidy data format..."
         step_start = time()
-        tidy_data = extract_location_scenario_data(result_set, scenarios_df)
+        tidy_data = extract_location_scenario_data(result_set)
         step_duration = time() - step_start
         @info "✓ Tidy data created in $(round(step_duration, digits=2)) seconds" nrows = nrow(
             tidy_data
