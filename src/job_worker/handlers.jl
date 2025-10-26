@@ -338,10 +338,10 @@ function handle_job(
     if !isempty(input.model_params)
         @info "Applying $(length(input.model_params)) custom model parameters"
         @debug "Custom parameters" params = input.model_params
-        param_start = time()
-        update_domain_with_params!(; domain, params=input.model_params)
-        param_time = time() - param_start
-        @debug "Custom parameters applied" update_time_seconds = round(param_time; digits=2)
+        param_time = @elapsed begin
+            update_domain_with_params!(; domain, params=input.model_params)
+        end
+        @debug "Custom parameters applied in $(round(param_time; digits=2)) seconds"
     else
         @debug "No custom parameters provided, using defaults"
     end
@@ -355,7 +355,7 @@ function handle_job(
         scenario_gen_time; digits=2
     )
 
-    # Determine unique parent directory 
+    # Determine unique parent directory
     @debug "Creating unique working directory" base_dir = context.config.data_scratch_space
     unique_parent_folder = create_unique_folder(;
         base_dir=context.config.data_scratch_space
