@@ -274,7 +274,7 @@ struct MetricFunction
     name::String
     title::String
     y_label::String
-    func::Function
+    func::Union{Function,ADRIA.metrics.Metric}
     description::String
 end
 
@@ -290,7 +290,7 @@ function register_metric!(
     name::String,
     title::String,
     y_label::String,
-    func::Function,
+    func::Union{Function,ADRIA.metrics.Metric},
     description::String=""
 )
     metric = MetricFunction(name, title, y_label, func, description)
@@ -323,13 +323,6 @@ end
 # =====================================================
 
 """
-Convert ADRIA metric objects to callable functions
-"""
-function metric_to_function(metric_obj)::Function
-    return (result_set) -> metric_obj(result_set)
-end
-
-"""
 Initialize the default set of metric functions using only available ADRIA metrics
 """
 function initialize_default_metrics!()
@@ -341,7 +334,7 @@ function initialize_default_metrics!()
         "relative_cover",
         "Relative Coral Cover Over Time",
         "Relative Cover",
-        metric_to_function(ADRIA.metrics.scenario_relative_cover),
+        ADRIA.metrics.scenario_relative_cover,
         "Shows the relative coral cover across scenarios over time"
     )
 
@@ -350,7 +343,7 @@ function initialize_default_metrics!()
         "total_absolute_cover",
         "Total Absolute Coral Cover Over Time",
         "Total Cover (m²)",
-        metric_to_function(ADRIA.metrics.scenario_total_cover),
+        ADRIA.metrics.scenario_total_cover,
         "Shows the absolute total coral cover across scenarios"
     )
 
@@ -359,7 +352,7 @@ function initialize_default_metrics!()
         "relative_shelter_volume",
         "Relative Shelter Volume Over Time",
         "Relative Shelter Volume",
-        metric_to_function(ADRIA.metrics.scenario_rsv),
+        ADRIA.metrics.scenario_rsv,
         "Shows the shelter volume relative to theoretical maximum"
     )
 
@@ -368,7 +361,7 @@ function initialize_default_metrics!()
         "absolute_shelter_volume",
         "Absolute Shelter Volume Over Time",
         "Shelter Volume (m³)",
-        metric_to_function(ADRIA.metrics.scenario_asv),
+        ADRIA.metrics.scenario_asv,
         "Shows the total shelter volume provided by corals"
     )
 
@@ -377,7 +370,7 @@ function initialize_default_metrics!()
         "relative_juveniles",
         "Relative Juvenile Population Over Time",
         "Relative Juveniles",
-        metric_to_function(ADRIA.metrics.scenario_relative_juveniles),
+        ADRIA.metrics.scenario_relative_juveniles,
         "Shows the relative juvenile coral population across scenarios"
     )
 
@@ -386,7 +379,7 @@ function initialize_default_metrics!()
         "absolute_juveniles",
         "Absolute Juvenile Population Over Time",
         "Juvenile Cover (m²)",
-        metric_to_function(ADRIA.metrics.scenario_absolute_juveniles),
+        ADRIA.metrics.scenario_absolute_juveniles,
         "Shows the absolute juvenile coral cover across scenarios"
     )
 
@@ -395,7 +388,7 @@ function initialize_default_metrics!()
         "coral_evenness",
         "Coral Evenness Over Time",
         "Evenness Index",
-        metric_to_function(ADRIA.metrics.scenario_evenness),
+        ADRIA.metrics.scenario_evenness,
         "Shows the evenness of coral species distribution (Simpson's diversity)"
     )
 
@@ -404,7 +397,7 @@ function initialize_default_metrics!()
         "juvenile_indicator",
         "Juvenile Density Indicator Over Time",
         "Density Indicator",
-        metric_to_function(ADRIA.metrics.scenario_juvenile_indicator),
+        ADRIA.metrics.scenario_juvenile_indicator,
         "Shows juvenile density relative to theoretical maximum (0-1 scale)"
     )
 
@@ -415,7 +408,7 @@ function initialize_default_metrics!()
     #     "condition_index",
     #     "Reef Condition Index",
     #     "Condition Index",
-    #     metric_to_function(ADRIA.metrics.scenario_rci),
+    #     ADRIA.metrics.scenario_rci,
     #     "Reef condition index"
     # )
 
@@ -424,7 +417,7 @@ function initialize_default_metrics!()
     #     "tourism_index",
     #     "Reef Tourism Index",
     #     "Tourism Index",
-    #     metric_to_function(ADRIA.metrics.scenario_rti),
+    #     ADRIA.metrics.scenario_rti,
     #     "Reef tourism index"
     # )
 
@@ -433,7 +426,7 @@ function initialize_default_metrics!()
     #     "fisheries_index",
     #     "Reef Fisheries Index",
     #     "Fisheries Index",
-    #     metric_to_function(ADRIA.metrics.scenario_rfi),
+    #     ADRIA.metrics.scenario_rfi,
     #     "Reef fisheries index"
     # )
 
@@ -444,7 +437,7 @@ end
 Generate all registered visualizations for the result set
 """
 function generate_all_visualizations(
-    scenarios_df::DataFrame,
+    scenario_spec::DataFrame,
     result_set::ADRIA.ResultSet,
     upload_directory_path::String
 )
@@ -463,7 +456,7 @@ function generate_all_visualizations(
 
             # Generate the plot
             vega_plot = plot_adria_scenarios(
-                scenarios_df,
+                scenario_spec,
                 result_set,
                 metric_data;
                 title=metric.title,
