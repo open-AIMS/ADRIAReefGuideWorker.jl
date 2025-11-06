@@ -58,7 +58,7 @@ function extract_location_scenario_data(result_set)
     # Returns
     String indicating scenario type: "guided", "unguided", "counterfactual", or "unknown"
     """
-    function scenario_id_to_type(scenario_id::Int)
+    function scenario_id_to_type(scenario_id::Int)::String
         for stype in ADRIA.analysis.SCENARIO_TYPES
             # Only handle relevant scenario types for provided result set
             if stype in keys(scenario_groups)

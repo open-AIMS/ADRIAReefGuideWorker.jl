@@ -349,6 +349,34 @@ function handle_job(
     # Generate scenarios with the specified number
     @info "Generating $(input.num_scenarios) scenarios"
     scenario_gen_start = time()
+
+    ADRIA.set_factor_bounds!(
+        domain;
+        # Use COCOSO as it appears to be the most robust
+        guided=("counterfactual", "unguided", "COCOSO"),
+        # Constrain the variety of DHW scenarios explored for consistency
+        # Further assessment of the DHW trajectories need to be done
+        dhw_scenario=(2, 17)
+    )
+
+    # Deactivate wave and cyclone scenarios (no or unreliable data)
+    ADRIA.fix_factor!(
+        domain; wave_scenario=0.0,
+        cyclone_mortality_scenario=0.0
+    )
+
+    # Assume coral model has been perfectly parameterized
+    coral_params = ADRIA.component_params(domain.model, ADRIA.Coral).fieldname
+    ADRIA.fix_factor!(domain, coral_params)
+
+    # Fix coral seeding weights
+    seed_criteria_params =
+        ADRIA.component_params(
+            domain.model,
+            ADRIA.SeedCriteriaWeights
+        ).fieldname
+    ADRIA.fix_factor!(domain, seed_criteria_params)
+
     scenarios = ADRIA.sample(domain, input.num_scenarios)
     scenario_gen_time = time() - scenario_gen_start
     @debug "Scenarios generated" generation_time_seconds = round(
